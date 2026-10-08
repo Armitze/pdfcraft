@@ -8,6 +8,7 @@ use egui::{Align, Layout};
 use pdfcraft_engine::DocId;
 use pdfcraft_engine::ocr::{LANGUAGES, OcrPage, OcrSettings};
 
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
 
@@ -64,7 +65,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     let d = &mut app.ocr_draft;
     d.to = d.to.clamp(1, pages);
     d.from = d.from.clamp(1, d.to);
-    ui.label(egui::RichText::new("Recognize Text").font(theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Recognize Text")).font(theme::semibold(18.0)));
     ui.add_space(8.0);
     let group = |ui: &mut egui::Ui, title: &str, body: &mut dyn FnMut(&mut egui::Ui)| {
         ui.label(egui::RichText::new(title).font(theme::semibold(13.0)));
@@ -74,35 +75,35 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
         });
         ui.add_space(8.0);
     };
-    group(ui, "Pages", &mut |ui| {
-        ui.radio_value(&mut d.pages, OcrPages::All, "All pages");
-        ui.radio_value(&mut d.pages, OcrPages::Current, "Current page");
+    group(ui, tr("Pages"), &mut |ui| {
+        ui.radio_value(&mut d.pages, OcrPages::All, tr("All pages"));
+        ui.radio_value(&mut d.pages, OcrPages::Current, tr("Current page"));
         ui.horizontal(|ui| {
-            ui.radio_value(&mut d.pages, OcrPages::Range, "From");
+            ui.radio_value(&mut d.pages, OcrPages::Range, tr("From"));
             let on = d.pages == OcrPages::Range;
             ui.add_enabled(on, egui::DragValue::new(&mut d.from).range(1..=pages));
-            ui.label("to");
+            ui.label(tr("to"));
             ui.add_enabled(on, egui::DragValue::new(&mut d.to).range(1..=pages));
         });
     });
-    group(ui, "Settings", &mut |ui| {
+    group(ui, tr("Settings"), &mut |ui| {
         egui::Grid::new("ocr-settings").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-            ui.label("Document language");
+            ui.label(tr("Document language"));
             let name = LANGUAGES.iter().find(|l| l.0 == d.language).map_or("English", |l| l.1);
-            egui::ComboBox::from_id_salt("ocr-language").selected_text(name).width(220.0).show_ui(ui, |ui| {
+            egui::ComboBox::from_id_salt("ocr-language").selected_text(tr(name)).width(220.0).show_ui(ui, |ui| {
                 for (code, name) in LANGUAGES {
-                    ui.selectable_value(&mut d.language, (*code).to_string(), *name);
+                    ui.selectable_value(&mut d.language, (*code).to_string(), tr(name));
                 }
             });
             ui.end_row();
-            ui.label("Output");
-            egui::ComboBox::from_id_salt("ocr-output").selected_text("Searchable Image (Exact)").width(220.0).show_ui(ui, |ui| {
+            ui.label(tr("Output"));
+            egui::ComboBox::from_id_salt("ocr-output").selected_text(tr("Searchable Image (Exact)")).width(220.0).show_ui(ui, |ui| {
                 let _ = ui
-                    .selectable_label(true, "Searchable Image (Exact)")
-                    .on_hover_text("Adds invisible text over each word; the page image is not changed");
+                    .selectable_label(true, tr("Searchable Image (Exact)"))
+                    .on_hover_text(tr("Adds invisible text over each word; the page image is not changed"));
             });
             ui.end_row();
-            ui.label("Downsample to");
+            ui.label(tr("Downsample to"));
             egui::ComboBox::from_id_salt("ocr-dpi").selected_text(format!("{} dpi", d.dpi)).width(220.0).show_ui(ui, |ui| {
                 for v in [600, 300, 150, 72] {
                     ui.selectable_value(&mut d.dpi, v, format!("{v} dpi"));
@@ -113,7 +114,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     });
     if !available {
         ui.label(
-            egui::RichText::new("Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS).")
+            egui::RichText::new(tr("Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS)."))
                 .small()
                 .color(t.text_muted),
         );
@@ -123,10 +124,10 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     let (mut go, mut cancel) = (false, false);
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if ui.add_enabled_ui(available, |ui| widgets::pill_button(ui, "Recognize text", true)).inner.clicked() {
+            if ui.add_enabled_ui(available, |ui| widgets::pill_button(ui, tr("Recognize text"), true)).inner.clicked() {
                 go = true;
             }
-            if widgets::pill_button(ui, "Cancel", false).clicked() {
+            if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                 cancel = true;
             }
         })
@@ -139,7 +140,7 @@ impl PdfCraftApp {
     pub fn start_ocr(&mut self) {
         let Some((vi, id)) = self.active_ids() else { return };
         if self.ocr_run.is_some() {
-            self.notify("Text recognition is already running");
+            self.notify(tr("Text recognition is already running"));
             return;
         }
         if let Some(why) = self.session.get(id).and_then(|d| d.read_only_reason.clone()) {
@@ -185,7 +186,7 @@ impl PdfCraftApp {
     /// (the export folder override in tests), under the same names.
     pub fn ocr_files(&mut self, files: Vec<(String, Vec<u8>)>) {
         if self.ocr_batch.is_some() {
-            self.notify("Text recognition is already running");
+            self.notify(tr("Text recognition is already running"));
             return;
         }
         let settings = OcrSettings { dpi: self.ocr_draft.dpi as f32, language: self.ocr_draft.language.clone(), ..Default::default() };
@@ -193,7 +194,7 @@ impl PdfCraftApp {
         #[cfg(not(target_arch = "wasm32"))]
         let dir = match &self.export_dir_override {
             Some(d) => Some(std::path::PathBuf::from(d)),
-            None => rfd::FileDialog::new().set_title("Choose a folder for the searchable files").pick_folder(),
+            None => rfd::FileDialog::new().set_title(tr("Choose a folder for the searchable files")).pick_folder(),
         };
         #[cfg(not(target_arch = "wasm32"))]
         let Some(dir) = dir else { return };
@@ -225,9 +226,9 @@ impl PdfCraftApp {
                     }
                 }
             }
-            let mut msg = format!("Recognized {words} words in {ok} file{}", if ok == 1 { "" } else { "s" });
+            let mut msg = trf(if ok == 1 { "Recognized {} words in {} file" } else { "Recognized {} words in {} files" }, &[&words, &ok]);
             if !failed.is_empty() {
-                msg.push_str(&format!("; failed: {}", failed.join("; ")));
+                msg.push_str(&trf("; failed: {}", &[&failed.join("; ")]));
             }
             if let Ok(mut s) = p.lock() {
                 s.done = s.total;
@@ -265,7 +266,7 @@ impl PdfCraftApp {
                     self.notify(m);
                 }
                 Some(Err((done, total))) => {
-                    let m = format!("Recognizing text… file {} of {}", (done + 1).min(total.max(1)), total.max(1));
+                    let m = trf("Recognizing text… file {} of {}", &[&(done + 1).min(total.max(1)), &total.max(1)]);
                     if self.toast.as_ref().is_none_or(|t| t.0 != m) {
                         self.notify(m);
                     }
@@ -280,7 +281,7 @@ impl PdfCraftApp {
         let (doc, progress) = (run.doc, run.progress.clone());
         let Ok(mut s) = progress.lock() else { return };
         let Some(result) = s.result.take() else {
-            let msg = format!("Recognizing text… page {} of {}", (s.done + 1).min(s.total.max(1)), s.total.max(1));
+            let msg = trf("Recognizing text… page {} of {}", &[&(s.done + 1).min(s.total.max(1)), &s.total.max(1)]);
             drop(s);
             if self.toast.as_ref().is_none_or(|t| t.0 != msg) {
                 self.notify(msg);
@@ -308,10 +309,11 @@ impl PdfCraftApp {
                 {
                     view.document_changed(&info);
                 }
-                let mut msg =
-                    format!("Recognized {words} word{} on {read} page{}", if words == 1 { "" } else { "s" }, if read == 1 { "" } else { "s" });
+                let what = trf(if words == 1 { "{} word" } else { "{} words" }, &[&words]);
+                let on = trf(if read == 1 { "{} page" } else { "{} pages" }, &[&read]);
+                let mut msg = trf("Recognized {} on {}", &[&what, &on]);
                 if skipped > 0 {
-                    msg.push_str(&format!("; {skipped} page{} already had text", if skipped == 1 { "" } else { "s" }));
+                    msg.push_str(&trf(if skipped == 1 { "; {} page already had text" } else { "; {} pages already had text" }, &[&skipped]));
                 }
                 self.notify(msg);
             }

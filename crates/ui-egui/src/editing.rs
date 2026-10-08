@@ -4,6 +4,7 @@
 use pdfcraft_engine::Edit;
 
 use crate::PdfCraftApp;
+use crate::i18n::{tr, trf};
 
 /// What the user was doing when we asked whether to save.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -66,7 +67,7 @@ impl PdfCraftApp {
                 true
             }
             Err(e) => {
-                self.notify(format!("{label} failed: {e}"));
+                self.notify(trf("{} failed: {}", &[&label, &e]));
                 false
             }
         }
@@ -89,7 +90,7 @@ impl PdfCraftApp {
                     self.views[i].document_changed(&doc.info);
                 }
                 self.views[i].comments.selected = None;
-                self.notify(format!("{} {label}", if undo { "Undid" } else { "Redid" }));
+                self.notify(trf(if undo { "Undid {}" } else { "Redid {}" }, &[&label]));
             }
             Err(e) => self.notify(e.to_string()),
         }
@@ -119,21 +120,21 @@ impl PdfCraftApp {
         let pages = self.views[i].target_pages();
         let n = doc.info.pages.len();
         if cut && pages.len() >= n {
-            self.notify("A document needs at least one page: copy instead");
+            self.notify(tr("A document needs at least one page: copy instead"));
             return;
         }
         self.page_clipboard = Some(crate::PageClip { name: doc.name.clone(), bytes: doc.bytes.clone(), pages: pages.clone() });
         if cut {
             self.apply_edit(Edit::DeletePages { pages: pages.clone() });
         }
-        let what = if pages.len() == 1 { "1 page".to_string() } else { format!("{} pages", pages.len()) };
-        self.notify(format!("{} {what}", if cut { "Cut" } else { "Copied" }));
+        let what = if pages.len() == 1 { trf("{} page", &[&1]) } else { trf("{} pages", &[&pages.len()]) };
+        self.notify(trf(if cut { "Cut {}" } else { "Copied {}" }, &[&what]));
     }
 
     /// Organize ▸ Paste: insert the copied pages after the selection (or the current page).
     pub fn paste_pages(&mut self) {
         let Some(clip) = self.page_clipboard.clone() else {
-            self.notify("Copy or cut pages first");
+            self.notify(tr("Copy or cut pages first"));
             return;
         };
         let Some(i) = self.active else { return };
@@ -160,7 +161,7 @@ impl PdfCraftApp {
         let bytes = match self.session.save_bytes(id) {
             Ok(b) => b,
             Err(e) => {
-                self.notify(format!("Couldn't save {name}: {e}"));
+                self.notify(trf("Couldn't save {}: {}", &[&name, &e]));
                 return false;
             }
         };
@@ -173,7 +174,7 @@ impl PdfCraftApp {
         {
             let Some(dest) = destination else { return false };
             if let Err(e) = write_atomically(&dest, &bytes) {
-                self.notify(format!("Couldn't save {dest}: {e}"));
+                self.notify(trf("Couldn't save {}: {}", &[&dest, &e]));
                 return false;
             }
             match self.session.mark_saved(id, bytes, Some(dest.clone())) {
@@ -182,11 +183,11 @@ impl PdfCraftApp {
                     if let Some(doc) = self.session.get(id) {
                         self.views[index].document_changed(&doc.info);
                     }
-                    self.notify(format!("Saved {}", short_name(&dest)));
+                    self.notify(trf("Saved {}", &[&short_name(&dest)]));
                     true
                 }
                 Err(e) => {
-                    self.notify(format!("Saved, but reopening failed: {e}"));
+                    self.notify(trf("Saved, but reopening failed: {}", &[&e]));
                     false
                 }
             }
@@ -200,11 +201,11 @@ impl PdfCraftApp {
                     if let Some(doc) = self.session.get(id) {
                         self.views[index].document_changed(&doc.info);
                     }
-                    self.notify(format!("Downloaded {name}"));
+                    self.notify(trf("Downloaded {}", &[&name]));
                     true
                 }
                 Err(e) => {
-                    self.notify(format!("Couldn't download {name}: {e}"));
+                    self.notify(trf("Couldn't download {}: {}", &[&name, &e]));
                     false
                 }
             }
@@ -254,7 +255,7 @@ impl PdfCraftApp {
                 {
                     self.views[i].document_changed(&d.info);
                 }
-                self.notify("Reverted to the last saved version");
+                self.notify(tr("Reverted to the last saved version"));
             }
             Err(e) => self.notify(e.to_string()),
         }

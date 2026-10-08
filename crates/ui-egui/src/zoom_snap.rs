@@ -5,6 +5,7 @@ use egui::{Color32, CornerRadius, Pos2, Rect, Stroke};
 use pdfcraft_render::{RenderConfig, RenderRequest, RequestKind, Tile};
 
 use crate::canvas::{DocView, PageXform};
+use crate::i18n::{tr, trf};
 use crate::{PdfCraftApp, QuickTool};
 
 /// A finished gesture: (page, the rectangle on screen, the same in page view points
@@ -64,8 +65,8 @@ impl PdfCraftApp {
                     return;
                 }
                 match self.snapshot(index, page, view_rect) {
-                    Ok((w, h)) => self.notify(format!("The selected area has been copied ({w} × {h} pixels)")),
-                    Err(e) => self.notify(format!("Couldn't take the snapshot: {e}")),
+                    Ok((w, h)) => self.notify(trf("The selected area has been copied ({} × {} pixels)", &[&w, &h])),
+                    Err(e) => self.notify(trf("Couldn't take the snapshot: {}", &[&e])),
                 }
             }
             _ => {}
@@ -122,7 +123,7 @@ impl PdfCraftApp {
             h: ((view_rect[3] - view_rect[1]) * scale).ceil().max(1.0) as u32,
         };
         if (tile.w as u64) * (tile.h as u64) > 64_000_000 {
-            return Err("the area is too large at this zoom".into());
+            return Err(tr("the area is too large at this zoom").into());
         }
         let config = RenderConfig { password: doc.password.as_deref().map(std::sync::Arc::from), ..RenderConfig::default() };
         let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), config);

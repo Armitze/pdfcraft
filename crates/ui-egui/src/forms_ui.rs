@@ -9,6 +9,7 @@ use pdfcraft_engine::{Edit, FieldValue, FormField, FormFieldKind, field_flags};
 use pdfcraft_render::DocInfo;
 
 use crate::canvas::{DocView, PageXform};
+use crate::i18n::{tr, trf};
 use crate::theme::Tokens;
 
 const FOCUS_BLUE: Color32 = Color32::from_rgb(0x14, 0x73, 0xE6);
@@ -90,14 +91,14 @@ pub(crate) fn page_input(
         return resp.is_pointer_button_down_on();
     }
     if !allowed {
-        view.forms.notice = Some("The document's security settings don't allow filling in form fields".into());
+        view.forms.notice = Some(tr("The document's security settings don't allow filling in form fields").into());
         return true;
     }
     match f.kind {
-        _ if f.read_only() => view.forms.notice = Some(format!("{} is read-only", f.name)),
+        _ if f.read_only() => view.forms.notice = Some(trf("{} is read-only", &[&f.name])),
         FormFieldKind::PushButton => match &f.button {
             Some(a) => view.forms.button = Some((f.name.clone(), a.clone())),
-            None => view.forms.notice = Some(format!("{} has no action", f.name)),
+            None => view.forms.notice = Some(trf("{} has no action", &[&f.name])),
         },
         FormFieldKind::Signature => view.sign.field = Some(f.name.clone()),
         FormFieldKind::CheckBox => {
@@ -154,11 +155,11 @@ fn calendar(ctx: &egui::Context, view: &mut DocView, field: egui::Rect, fmt: &st
         .show(ctx, |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.small_button("‹").on_hover_text("Previous month").clicked() {
+                    if ui.small_button("‹").on_hover_text(tr("Previous month")).clicked() {
                         (y, m) = if m == 1 { (y - 1, 12) } else { (y, m - 1) };
                     }
-                    ui.label(egui::RichText::new(format!("{} {y}", MONTHS[(m.clamp(1, 12) - 1) as usize])).strong());
-                    if ui.small_button("›").on_hover_text("Next month").clicked() {
+                    ui.label(egui::RichText::new(format!("{} {y}", tr(MONTHS[(m.clamp(1, 12) - 1) as usize]))).strong());
+                    if ui.small_button("›").on_hover_text(tr("Next month")).clicked() {
                         (y, m) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
                     }
                 });
@@ -174,7 +175,7 @@ fn calendar(ctx: &egui::Context, view: &mut DocView, field: egui::Rect, fmt: &st
                 let len = (days_from_civil(if m == 12 { y + 1 } else { y }, if m == 12 { 1 } else { m + 1 }, 1) - days_from_civil(y, m, 1)) as usize;
                 egui::Grid::new(("date-grid", view.id.0)).spacing([4.0, 2.0]).show(ui, |ui| {
                     for d in ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] {
-                        ui.label(egui::RichText::new(d).small());
+                        ui.label(egui::RichText::new(tr(d)).small());
                     }
                     ui.end_row();
                     for cell in 0..(first + len).div_ceil(7) * 7 {
@@ -186,7 +187,7 @@ fn calendar(ctx: &egui::Context, view: &mut DocView, field: egui::Rect, fmt: &st
                             if is_today {
                                 text = text.strong();
                             }
-                            if ui.selectable_label(selected, text).on_hover_text(format!("{} {day}, {y}", MONTHS[(m - 1) as usize])).clicked() {
+                            if ui.selectable_label(selected, text).on_hover_text(format!("{} {day}, {y}", tr(MONTHS[(m - 1) as usize]))).clicked() {
                                 picked = Some(format_date(DateTime { y, m, d: day, hh: 0, mm: 0, ss: 0 }, fmt));
                             }
                         } else {
@@ -328,7 +329,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, f
                                 }
                             }
                         });
-                        if multi && ui.button("Done").clicked() {
+                        if multi && ui.button(tr("Done")).clicked() {
                             commit(view, form);
                         }
                     });
