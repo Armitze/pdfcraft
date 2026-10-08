@@ -1128,6 +1128,8 @@ impl eframe::App for PdfCraftApp {
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ctx = Some(ctx.clone());
+        // Widgets translate through `i18n::tr`, which reads the language published here.
+        self.language.make_current();
         if !self.styled {
             egui_extras::install_image_loaders(ctx);
             theme::install_fonts(ctx);

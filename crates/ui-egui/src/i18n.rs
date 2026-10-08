@@ -1,5 +1,18 @@
 //! Interface translations. Command ids, document text and file names remain stable.
 //! Untranslated labels fall back to English so coverage can grow incrementally.
+//!
+//! Catalogs are flat `(English, translated)` tables: [`ja`] for Japanese and the files under
+//! [`es`] for Spanish, one per area of the interface. The app publishes the chosen language once
+//! per frame ([`Language::make_current`]), so any widget can call the free functions [`tr`] and
+//! [`trf`] without threading the app through.
+
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+mod es;
+mod ja;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -9,6 +22,9 @@ pub enum Language {
     Ja,
     Es,
 }
+
+/// The language the free functions translate into; written by [`Language::make_current`].
+static CURRENT: AtomicU8 = AtomicU8::new(0);
 
 impl Language {
     pub const ALL: [Self; 3] = [Self::En, Self::Ja, Self::Es];
@@ -30,138 +46,95 @@ impl Language {
         }
     }
 
-    /// The `(English, translated)` pairs of this language; empty for English itself.
-    fn catalog(self) -> &'static [(&'static str, &'static str)] {
+    /// Make this the language [`tr`] and [`trf`] use from now on.
+    pub fn make_current(self) {
+        CURRENT.store(self as u8, Ordering::Relaxed);
+    }
+
+    /// The language [`tr`] and [`trf`] use.
+    pub fn current() -> Self {
+        match CURRENT.load(Ordering::Relaxed) {
+            1 => Self::Ja,
+            2 => Self::Es,
+            _ => Self::En,
+        }
+    }
+
+    /// The `(English, translated)` tables of this language; empty for English itself.
+    fn catalogs(self) -> &'static [&'static [(&'static str, &'static str)]] {
         match self {
             Self::En => &[],
-            Self::Ja => JAPANESE,
-            Self::Es => SPANISH,
+            Self::Ja => &[ja::ENTRIES],
+            Self::Es => es::ALL,
         }
+    }
+
+    /// The lookup table, built on first use. Duplicate keys keep their first translation.
+    fn map(self) -> &'static HashMap<&'static str, &'static str> {
+        static JA: OnceLock<HashMap<&str, &str>> = OnceLock::new();
+        static ES: OnceLock<HashMap<&str, &str>> = OnceLock::new();
+        static EN: OnceLock<HashMap<&str, &str>> = OnceLock::new();
+        let cell = match self {
+            Self::En => &EN,
+            Self::Ja => &JA,
+            Self::Es => &ES,
+        };
+        cell.get_or_init(|| {
+            let mut map = HashMap::new();
+            for (english, translated) in self.catalogs().iter().flat_map(|c| c.iter()) {
+                map.entry(*english).or_insert(*translated);
+            }
+            map
+        })
     }
 
     pub fn tr(self, text: &str) -> &str {
-        if let Some((_, translated)) = self.catalog().iter().find(|(english, _)| *english == text) {
-            return translated;
-        }
-        text
+        self.map().get(text).copied().unwrap_or(text)
     }
 }
 
-const JAPANESE: &[(&str, &str)] = &[
-    ("Menu", "メニュー"),
-    ("File", "ファイル"),
-    ("Edit", "編集"),
-    ("Pages", "ページ"),
-    ("View", "表示"),
-    ("Help", "ヘルプ"),
-    ("Preferences", "環境設定"),
-    ("Preferences…", "環境設定…"),
-    ("Interface language", "表示言語"),
-    ("Identity", "個人情報"),
-    ("Name on new comments", "新しい注釈の作成者名"),
-    ("Open…", "開く…"),
-    ("New blank PDF", "空白の PDF を作成"),
-    ("Create PDF from file…", "ファイルから PDF を作成…"),
-    ("Create PDF from images…", "画像から PDF を作成…"),
-    ("Create PDF from clipboard", "クリップボードから PDF を作成"),
-    ("Combine files…", "ファイルを結合…"),
-    ("Save", "保存"),
-    ("Save as…", "別名で保存…"),
-    ("Close file", "ファイルを閉じる"),
-    ("Close all", "すべて閉じる"),
-    ("Revert", "保存済みの状態に戻す"),
-    ("Print…", "印刷…"),
-    ("Document properties…", "文書のプロパティ…"),
-    ("Undo", "取り消し"),
-    ("Redo", "やり直し"),
-    ("Find…", "検索…"),
-    ("Advanced search…", "高度な検索…"),
-    ("Copy pages", "ページをコピー"),
-    ("Cut pages", "ページを切り取り"),
-    ("Paste pages", "ページを貼り付け"),
-    ("Fit visible", "表示範囲に合わせる"),
-    ("Marquee zoom", "範囲指定ズーム"),
-    ("Take a snapshot", "スナップショットを作成"),
-    ("Full screen mode", "全画面表示"),
-    ("Read mode", "閲覧モード"),
-    ("Switch light / dark theme", "明るい／暗いテーマを切り替え"),
-    ("Comments panel", "コメントパネル"),
-    ("Form fields panel", "フォームフィールドパネル"),
-    ("Clear form", "フォームをクリア"),
-    ("Find tools and commands…", "ツールとコマンドを検索…"),
-    ("Zoom", "ズーム"),
-    ("Actual size", "実際のサイズ"),
-    ("Zoom to page level", "ページ全体を表示"),
-    ("Fit to width", "幅に合わせる"),
-    ("Display theme", "表示テーマ"),
-    ("Side panels", "サイドパネル"),
-    ("Enable Acrobat JavaScript", "Acrobat JavaScript を有効にする"),
-    ("OK", "OK"),
-];
+/// `text` in the current interface language, or `text` itself when there is no translation.
+pub fn tr(text: &str) -> &str {
+    Language::current().tr(text)
+}
 
-const SPANISH: &[(&str, &str)] = &[
-    ("Menu", "Menú"),
-    ("File", "Archivo"),
-    ("Edit", "Edición"),
-    ("Pages", "Páginas"),
-    ("View", "Ver"),
-    ("Help", "Ayuda"),
-    ("Preferences", "Preferencias"),
-    ("Preferences…", "Preferencias…"),
-    ("Interface language", "Idioma de la interfaz"),
-    ("Identity", "Identidad"),
-    ("Name on new comments", "Nombre en los comentarios nuevos"),
-    ("Open…", "Abrir…"),
-    ("New blank PDF", "Nuevo PDF en blanco"),
-    ("Create PDF from file…", "Crear PDF desde archivo…"),
-    ("Create PDF from images…", "Crear PDF desde imágenes…"),
-    ("Create PDF from clipboard", "Crear PDF desde el portapapeles"),
-    ("Combine files…", "Combinar archivos…"),
-    ("Save", "Guardar"),
-    ("Save as…", "Guardar como…"),
-    ("Close file", "Cerrar archivo"),
-    ("Close all", "Cerrar todo"),
-    ("Revert", "Revertir"),
-    ("Print…", "Imprimir…"),
-    ("Document properties…", "Propiedades del documento…"),
-    ("Undo", "Deshacer"),
-    ("Redo", "Rehacer"),
-    ("Find…", "Buscar…"),
-    ("Advanced search…", "Búsqueda avanzada…"),
-    ("Copy pages", "Copiar páginas"),
-    ("Cut pages", "Cortar páginas"),
-    ("Paste pages", "Pegar páginas"),
-    ("Fit visible", "Ajustar a lo visible"),
-    ("Marquee zoom", "Zoom de selección"),
-    ("Take a snapshot", "Tomar instantánea"),
-    ("Full screen mode", "Modo de pantalla completa"),
-    ("Read mode", "Modo de lectura"),
-    ("Switch light / dark theme", "Cambiar tema claro / oscuro"),
-    ("Comments panel", "Panel de comentarios"),
-    ("Form fields panel", "Panel de campos de formulario"),
-    ("Clear form", "Borrar formulario"),
-    ("Find tools and commands…", "Buscar herramientas y comandos…"),
-    ("Zoom", "Zoom"),
-    ("Actual size", "Tamaño real"),
-    ("Zoom to page level", "Ajustar a la página"),
-    ("Fit to width", "Ajustar al ancho"),
-    ("Display theme", "Tema de visualización"),
-    ("Side panels", "Paneles laterales"),
-    ("Enable Acrobat JavaScript", "Activar JavaScript de Acrobat"),
-    ("OK", "Aceptar"),
-];
+/// Like [`tr`] for a label with `{}` placeholders, filled in order from `args`.
+/// `trf("Page {} of {}", &[&3, &10])` gives "Página 3 de 10" in Spanish.
+pub fn trf(text: &str, args: &[&dyn Display]) -> String {
+    let template = tr(text);
+    let mut out = String::with_capacity(template.len() + args.len() * 8);
+    let mut args = args.iter();
+    let mut rest = template;
+    while let Some(at) = rest.find("{}") {
+        out.push_str(&rest[..at]);
+        match args.next() {
+            Some(arg) => out.push_str(&arg.to_string()),
+            None => out.push_str("{}"),
+        }
+        rest = &rest[at + 2..];
+    }
+    out.push_str(rest);
+    out
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn keys(catalog: &[(&'static str, &'static str)]) -> Vec<&'static str> {
+        catalog.iter().map(|(en, _)| *en).collect()
+    }
+
     #[test]
     fn translations_are_unique_and_preserve_unknown_text() {
         for language in [Language::Ja, Language::Es] {
-            let catalog = language.catalog();
-            for (i, (en, translated)) in catalog.iter().enumerate() {
-                assert!(!translated.is_empty());
-                assert!(catalog.iter().take(i).all(|(other, _)| en != other));
+            let mut seen: HashMap<&str, &str> = HashMap::new();
+            for (en, translated) in language.catalogs().iter().flat_map(|c| c.iter()) {
+                assert!(!translated.is_empty(), "{language:?}: empty translation for {en:?}");
+                assert_eq!(en.matches("{}").count(), translated.matches("{}").count(), "{language:?}: placeholder count differs for {en:?}");
+                if let Some(other) = seen.insert(en, translated) {
+                    assert_eq!(other, *translated, "{language:?}: {en:?} translated two different ways");
+                }
                 assert_eq!(Language::En.tr(en), *en);
             }
         }
@@ -174,11 +147,24 @@ mod tests {
     }
 
     #[test]
-    fn every_language_translates_the_same_labels() {
-        // A label added to one catalog must be added to all of them, so menus never mix languages.
-        let japanese: Vec<&str> = JAPANESE.iter().map(|(en, _)| *en).collect();
-        let spanish: Vec<&str> = SPANISH.iter().map(|(en, _)| *en).collect();
-        assert_eq!(japanese, spanish);
+    fn spanish_covers_every_japanese_label() {
+        // Spanish is the most complete catalog; whatever Japanese translates, Spanish must too.
+        let spanish = Language::Es.map();
+        for key in keys(ja::ENTRIES) {
+            assert!(spanish.contains_key(key), "Spanish catalog lacks {key:?}");
+        }
+    }
+
+    #[test]
+    fn free_functions_follow_the_current_language_and_fill_placeholders() {
+        Language::Es.make_current();
+        assert_eq!(Language::current(), Language::Es);
+        assert_eq!(tr("File"), "Archivo");
+        assert_eq!(trf("Page {} of {}", &[&3, &10]), "Página 3 de 10");
+        assert_eq!(trf("{} extra {}", &[&1]), "1 extra {}");
+        Language::En.make_current();
+        assert_eq!(tr("File"), "File");
+        assert_eq!(trf("Page {} of {}", &[&3, &10]), "Page 3 of 10");
     }
 
     #[test]
