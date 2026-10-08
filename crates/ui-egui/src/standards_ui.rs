@@ -4,6 +4,7 @@
 use egui::{Align, Layout};
 use pdfcraft_engine::pdfa::{Issue, Level};
 
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
 
@@ -35,9 +36,12 @@ impl PdfCraftApp {
             self.pdfa_verify();
             let left = self.pdfa.issues.as_ref().map_or(0, Vec::len);
             self.notify(if left == 0 {
-                format!("The document now conforms to {}; save it to keep the changes", level.label())
+                trf("The document now conforms to {}; save it to keep the changes", &[&level.label()])
             } else {
-                format!("Fixed what could be fixed; {left} problem{} remain", if left == 1 { "" } else { "s" })
+                trf(
+                    if left == 1 { "Fixed what could be fixed; {} problem remains" } else { "Fixed what could be fixed; {} problems remain" },
+                    &[&left],
+                )
             });
         }
     }
@@ -48,15 +52,15 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool
     ui.label(egui::RichText::new("PDF/A").font(theme::semibold(18.0)));
     ui.add_space(6.0);
     let declared = app.active_ids().and_then(|(_, id)| app.session.get(id)).map(|d| d.standards()).unwrap_or_default();
-    let shown = declared.pdfa.as_ref().map_or("none".to_string(), |(p, c)| format!("PDF/A-{p}{}", c.to_lowercase()));
-    ui.label(format!("Declared conformance: {shown}"));
+    let shown = declared.pdfa.as_ref().map_or(tr("none").to_string(), |(p, c)| format!("PDF/A-{p}{}", c.to_lowercase()));
+    ui.label(trf("Declared conformance: {}", &[&shown]));
     if !declared.output_intents.is_empty() {
-        ui.label(egui::RichText::new(format!("Output intent: {}", declared.output_intents.join(", "))).color(t.text_muted));
+        ui.label(egui::RichText::new(trf("Output intent: {}", &[&declared.output_intents.join(", ")])).color(t.text_muted));
     }
     ui.add_space(6.0);
     let before = app.pdfa.level;
     ui.horizontal(|ui| {
-        ui.label("Conformance level:");
+        ui.label(tr("Conformance level:"));
         egui::ComboBox::from_id_salt("pdfa-level").selected_text(app.pdfa.level.label()).show_ui(ui, |ui| {
             for l in [Level::A2b, Level::A3b] {
                 ui.selectable_value(&mut app.pdfa.level, l, l.label());
@@ -73,15 +77,15 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool
             ui.set_min_height(120.0);
             match &app.pdfa.issues {
                 None => {
-                    ui.label(egui::RichText::new("Verify to see what the document needs.").color(t.text_muted));
+                    ui.label(egui::RichText::new(tr("Verify to see what the document needs.")).color(t.text_muted));
                 }
                 Some(v) if v.is_empty() => {
-                    ui.label(format!("No problems found: the document conforms to {}.", app.pdfa.level.label()));
+                    ui.label(trf("No problems found: the document conforms to {}.", &[&app.pdfa.level.label()]));
                 }
                 Some(v) => {
                     for i in v {
-                        let page = i.page.map(|p| format!(" (page {})", p + 1)).unwrap_or_default();
-                        let fix = if i.fixable { "" } else { "  · not fixable here" };
+                        let page = i.page.map(|p| format!(" ({})", trf("page {}", &[&(p + 1)]))).unwrap_or_default();
+                        let fix = if i.fixable { String::new() } else { format!("  · {}", tr("not fixable here")) };
                         ui.label(format!("{}{page}", i.message));
                         ui.label(egui::RichText::new(format!("ISO 19005 {}{fix}", i.clause)).small().color(t.text_muted));
                     }
@@ -94,13 +98,13 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool
     let mut action = None;
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if widgets::pill_button(ui, "Save as PDF/A", true).clicked() {
+            if widgets::pill_button(ui, tr("Save as PDF/A"), true).clicked() {
                 action = Some(true);
             }
-            if widgets::pill_button(ui, "Verify", false).clicked() {
+            if widgets::pill_button(ui, tr("Verify"), false).clicked() {
                 action = Some(false);
             }
-            if widgets::pill_button(ui, "Close", false).clicked() {
+            if widgets::pill_button(ui, tr("Close"), false).clicked() {
                 close = true;
             }
         });

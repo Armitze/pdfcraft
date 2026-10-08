@@ -2,6 +2,7 @@
 
 use egui::{Align, Layout};
 
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Tokens};
 use pdfcraft_engine::Edit;
 
@@ -76,7 +77,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         w.hovered.bg_stroke = egui::Stroke::new(1.0, t.text_muted);
         match dialog {
             Dialog::Properties(tab) => {
-                ui.label(egui::RichText::new("Document Properties").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Document Properties")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     for (tb, label) in [
@@ -86,7 +87,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         (PropsTab::Fonts, "Fonts"),
                         (PropsTab::Advanced, "Advanced"),
                     ] {
-                        if widgets::mode_tab(ui, label, tab == tb).clicked() {
+                        if widgets::mode_tab(ui, tr(label), tab == tb).clicked() {
                             next = Dialog::Properties(tb);
                         }
                     }
@@ -96,7 +97,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 let Some(doc) = app.session.get(id) else { return };
                 let i = &doc.info;
                 let row = |ui: &mut egui::Ui, k: &str, v: String| {
-                    ui.label(egui::RichText::new(k).color(t.text_muted));
+                    ui.label(egui::RichText::new(tr(k)).color(t.text_muted));
                     ui.label(if v.is_empty() { egui::RichText::new("—").color(t.text_faint) } else { egui::RichText::new(v) });
                     ui.end_row();
                 };
@@ -107,7 +108,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             match app.props_draft.as_mut() {
                                 Some((_, draft)) if doc.allows_modification() => {
                                     for (k, v) in INFO_KEYS.iter().zip(draft.iter_mut()) {
-                                        let l = ui.label(egui::RichText::new(*k).color(t.text_muted));
+                                        let l = ui.label(egui::RichText::new(tr(k)).color(t.text_muted));
                                         ui.add(
                                             egui::TextEdit::singleline(v)
                                                 .desired_width(420.0)
@@ -134,28 +135,26 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             let editable = doc.allows_modification();
                             let pages = i.pages.len();
                             let Some((_, v)) = app.view_draft.as_mut() else { return };
-                            ui.label(egui::RichText::new("Layout and Magnification").font(theme::semibold(12.5)));
+                            ui.label(egui::RichText::new(tr("Layout and Magnification")).font(theme::semibold(12.5)));
                             ui.end_row();
-                            ui.label("Navigation tab");
+                            ui.label(tr("Navigation tab"));
                             ui.add_enabled_ui(editable, |ui| {
-                                egui::ComboBox::from_id_salt("iv-nav")
-                                    .selected_text(
-                                        format!("{:?}", v.navigation).replace("PageOnly", "Page Only").replace("Pages", "Pages Panel and Page"),
-                                    )
-                                    .show_ui(ui, |ui| {
-                                        for (n, l) in [
-                                            (N::PageOnly, "Page Only"),
-                                            (N::Bookmarks, "Bookmarks Panel and Page"),
-                                            (N::Pages, "Pages Panel and Page"),
-                                            (N::Attachments, "Attachments Panel and Page"),
-                                            (N::Layers, "Layers Panel and Page"),
-                                        ] {
-                                            ui.selectable_value(&mut v.navigation, n, l);
-                                        }
-                                    });
+                                let names = [
+                                    (N::PageOnly, "Page Only"),
+                                    (N::Bookmarks, "Bookmarks Panel and Page"),
+                                    (N::Pages, "Pages Panel and Page"),
+                                    (N::Attachments, "Attachments Panel and Page"),
+                                    (N::Layers, "Layers Panel and Page"),
+                                ];
+                                let shown = names.iter().find(|(n, _)| *n == v.navigation).map_or("Page Only", |(_, l)| l);
+                                egui::ComboBox::from_id_salt("iv-nav").selected_text(tr(shown)).show_ui(ui, |ui| {
+                                    for (n, l) in names {
+                                        ui.selectable_value(&mut v.navigation, n, tr(l));
+                                    }
+                                });
                             });
                             ui.end_row();
-                            ui.label("Page layout");
+                            ui.label(tr("Page layout"));
                             ui.add_enabled_ui(editable, |ui| {
                                 let names = [
                                     (L::Default, "Default"),
@@ -167,14 +166,14 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                     (L::TwoUpContinuousCoverPage, "Two-Up Continuous (Cover Page)"),
                                 ];
                                 let shown = names.iter().find(|(l, _)| *l == v.layout).map_or("Default", |(_, n)| n);
-                                egui::ComboBox::from_id_salt("iv-layout").selected_text(shown).show_ui(ui, |ui| {
+                                egui::ComboBox::from_id_salt("iv-layout").selected_text(tr(shown)).show_ui(ui, |ui| {
                                     for (l, n) in names {
-                                        ui.selectable_value(&mut v.layout, l, n);
+                                        ui.selectable_value(&mut v.layout, l, tr(n));
                                     }
                                 });
                             });
                             ui.end_row();
-                            ui.label("Magnification");
+                            ui.label(tr("Magnification"));
                             ui.add_enabled_ui(editable, |ui| {
                                 ui.horizontal(|ui| {
                                     let names = [
@@ -187,11 +186,11 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                     ];
                                     let shown = match v.magnification {
                                         M::Percent(p) => format!("{p:.0}%"),
-                                        m => names.iter().find(|(x, _)| *x == m).map_or("Default", |(_, n)| n).to_string(),
+                                        m => tr(names.iter().find(|(x, _)| *x == m).map_or("Default", |(_, n)| n)).to_string(),
                                     };
                                     egui::ComboBox::from_id_salt("iv-mag").selected_text(shown).show_ui(ui, |ui| {
                                         for (m, n) in names {
-                                            ui.selectable_value(&mut v.magnification, m, n);
+                                            ui.selectable_value(&mut v.magnification, m, tr(n));
                                         }
                                         for p in [50.0, 75.0, 125.0, 150.0, 200.0] {
                                             ui.selectable_value(&mut v.magnification, M::Percent(p), format!("{p:.0}%"));
@@ -200,86 +199,86 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 });
                             });
                             ui.end_row();
-                            ui.label("Open to page");
+                            ui.label(tr("Open to page"));
                             ui.add_enabled_ui(editable, |ui| {
                                 let mut p = v.page + 1;
                                 if ui.add(egui::DragValue::new(&mut p).range(1..=pages.max(1))).changed() {
                                     v.page = p - 1;
                                 }
-                                ui.label(format!("of {pages}"));
+                                ui.label(trf("of {}", &[&pages]));
                             });
                             ui.end_row();
-                            ui.label(egui::RichText::new("Window Options").font(theme::semibold(12.5)));
+                            ui.label(egui::RichText::new(tr("Window Options")).font(theme::semibold(12.5)));
                             ui.end_row();
                             ui.label("");
                             ui.add_enabled_ui(editable, |ui| {
                                 ui.vertical(|ui| {
-                                    ui.checkbox(&mut v.fit_window, "Resize window to initial page");
-                                    ui.checkbox(&mut v.center_window, "Center window on screen");
-                                    ui.checkbox(&mut v.full_screen, "Open in Full Screen mode");
+                                    ui.checkbox(&mut v.fit_window, tr("Resize window to initial page"));
+                                    ui.checkbox(&mut v.center_window, tr("Center window on screen"));
+                                    ui.checkbox(&mut v.full_screen, tr("Open in Full Screen mode"));
                                     ui.horizontal(|ui| {
-                                        ui.label("Show:");
-                                        ui.radio_value(&mut v.display_title, false, "File Name");
-                                        ui.radio_value(&mut v.display_title, true, "Document Title");
+                                        ui.label(tr("Show:"));
+                                        ui.radio_value(&mut v.display_title, false, tr("File Name"));
+                                        ui.radio_value(&mut v.display_title, true, tr("Document Title"));
                                     });
                                 });
                             });
                             ui.end_row();
-                            ui.label(egui::RichText::new("User Interface Options").font(theme::semibold(12.5)));
+                            ui.label(egui::RichText::new(tr("User Interface Options")).font(theme::semibold(12.5)));
                             ui.end_row();
                             ui.label("");
                             ui.add_enabled_ui(editable, |ui| {
                                 ui.vertical(|ui| {
-                                    ui.checkbox(&mut v.hide_menubar, "Hide menu bar");
-                                    ui.checkbox(&mut v.hide_toolbar, "Hide toolbars");
-                                    ui.checkbox(&mut v.hide_window_ui, "Hide window controls");
+                                    ui.checkbox(&mut v.hide_menubar, tr("Hide menu bar"));
+                                    ui.checkbox(&mut v.hide_toolbar, tr("Hide toolbars"));
+                                    ui.checkbox(&mut v.hide_window_ui, tr("Hide window controls"));
                                 });
                             });
                             ui.end_row();
                         }
                         PropsTab::Security => match doc.security_summary() {
                             None => {
-                                row(ui, "Security method", "No security".into());
-                                row(ui, "Restrictions", "None — everything is allowed".into());
-                                if doc.allows_security_change() && ui.button("Protect using password…").clicked() {
+                                row(ui, "Security method", tr("No security").into());
+                                row(ui, "Restrictions", tr("None — everything is allowed").into());
+                                if doc.allows_security_change() && ui.button(tr("Protect using password…")).clicked() {
                                     link_command = Some("protect.password");
                                 }
                             }
                             Some(sec) => {
-                                row(ui, "Security method", "Password security".into());
+                                row(ui, "Security method", tr("Password security").into());
                                 row(ui, "Encryption", sec.method.clone());
                                 row(
                                     ui,
                                     "Opened with",
                                     if sec.pending {
-                                        "— (protection is applied when you save)".into()
+                                        tr("— (protection is applied when you save)").into()
                                     } else if sec.owner {
-                                        "Owner password (no restrictions apply)".into()
+                                        tr("Owner password (no restrictions apply)").into()
                                     } else {
-                                        "User password".into()
+                                        tr("User password").into()
                                     },
                                 );
                                 if doc.allows_security_change() {
                                     ui.horizontal(|ui| {
-                                        if ui.button("Change settings…").clicked() {
+                                        if ui.button(tr("Change settings…")).clicked() {
                                             link_command = Some("protect.password");
                                         }
-                                        if ui.button("Remove security").clicked() {
+                                        if ui.button(tr("Remove security")).clicked() {
                                             link_command = Some("protect.remove");
                                         }
                                     });
                                 }
                                 let p = sec.permissions;
-                                let yes = |b: bool| if b { "Allowed".to_string() } else { "Not allowed".to_string() };
+                                let yes = |b: bool| if b { tr("Allowed").to_string() } else { tr("Not allowed").to_string() };
                                 row(
                                     ui,
                                     "Printing",
                                     if !p.print() {
-                                        "Not allowed".into()
+                                        tr("Not allowed").into()
                                     } else if p.print_high_quality() {
-                                        "High resolution".into()
+                                        tr("High resolution").into()
                                     } else {
-                                        "Low resolution".into()
+                                        tr("Low resolution").into()
                                     },
                                 );
                                 row(ui, "Changing the document", yes(p.modify()));
@@ -292,19 +291,20 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         },
                         PropsTab::Fonts => {
                             if i.fonts.is_empty() {
-                                row(ui, "Fonts", "No fonts are referenced by the pages.".into());
+                                row(ui, "Fonts", tr("No fonts are referenced by the pages.").into());
                             }
                             for f in &i.fonts {
                                 let mut detail = f.kind.clone();
                                 if let Some(e) = &f.encoding {
                                     detail.push_str(&format!(" · {e}"));
                                 }
+                                detail.push_str(" · ");
                                 detail.push_str(if f.subset {
-                                    " · Embedded subset"
+                                    tr("Embedded subset")
                                 } else if f.embedded {
-                                    " · Embedded"
+                                    tr("Embedded")
                                 } else {
-                                    " · Not embedded (substituted)"
+                                    tr("Not embedded (substituted)")
                                 });
                                 row(ui, &f.name, detail);
                             }
@@ -312,9 +312,9 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         PropsTab::Advanced => {
                             row(ui, "PDF version", i.pdf_version.clone());
                             row(ui, "Location", doc.path.clone().unwrap_or_default());
-                            row(ui, "File size", format!("{} ({} bytes)", human_size(i.file_size), i.file_size));
+                            row(ui, "File size", trf("{} ({} bytes)", &[&human_size(i.file_size), &i.file_size]));
                             let p = &i.pages[0];
-                            row(ui, "Page size", format!("{:.2} × {:.2} in", p.width / 72.0, p.height / 72.0));
+                            row(ui, "Page size", trf("{} × {} in", &[&format!("{:.2}", p.width / 72.0), &format!("{:.2}", p.height / 72.0)]));
                             row(ui, "Number of pages", i.pages.len().to_string());
                             row(ui, "Tagged PDF", yes(i.tagged));
                             row(ui, "Form fields", i.fields.len().to_string());
@@ -325,11 +325,14 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             // Each incremental update is a revision; earlier ones open as their own document.
                             let ends = doc.revision_ends();
                             if ends.len() > 1 {
-                                ui.label(egui::RichText::new("Revisions").color(t.text_muted));
+                                ui.label(egui::RichText::new(tr("Revisions")).color(t.text_muted));
                                 ui.horizontal_wrapped(|ui| {
                                     ui.label(ends.len().to_string());
                                     for n in (1..ends.len()).rev().take(12) {
-                                        if ui.small_button(format!("View revision {n}")).on_hover_text("Open the file as it was saved then").clicked()
+                                        if ui
+                                            .small_button(trf("View revision {}", &[&n]))
+                                            .on_hover_text(tr("Open the file as it was saved then"))
+                                            .clicked()
                                         {
                                             open_revision = Some(n);
                                         }
@@ -340,18 +343,18 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             // Reading Options: binding and language.
                             if let Some((_, v)) = app.view_draft.as_mut() {
                                 let editable = doc.allows_modification();
-                                ui.label(egui::RichText::new("Binding").color(t.text_muted));
+                                ui.label(egui::RichText::new(tr("Binding")).color(t.text_muted));
                                 ui.add_enabled_ui(editable, |ui| {
                                     ui.horizontal(|ui| {
-                                        ui.radio_value(&mut v.right_to_left, false, "Left Edge");
-                                        ui.radio_value(&mut v.right_to_left, true, "Right Edge");
+                                        ui.radio_value(&mut v.right_to_left, false, tr("Left Edge"));
+                                        ui.radio_value(&mut v.right_to_left, true, tr("Right Edge"));
                                     });
                                 });
                                 ui.end_row();
-                                let l = ui.label(egui::RichText::new("Language").color(t.text_muted));
+                                let l = ui.label(egui::RichText::new(tr("Language")).color(t.text_muted));
                                 let mut lang = v.language.clone().unwrap_or_default();
                                 if ui
-                                    .add_enabled(editable, egui::TextEdit::singleline(&mut lang).hint_text("e.g. en-US").desired_width(160.0))
+                                    .add_enabled(editable, egui::TextEdit::singleline(&mut lang).hint_text(tr("e.g. en-US")).desired_width(160.0))
                                     .labelled_by(l.id)
                                     .changed()
                                 {
@@ -361,10 +364,10 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             }
                             // What was repaired while reading a damaged file (fidelity: never silent).
                             let repairs = doc.repair_log();
-                            row(ui, "Repairs", if repairs.is_empty() { "None".to_string() } else { repairs.len().to_string() });
+                            row(ui, "Repairs", if repairs.is_empty() { tr("None").to_string() } else { repairs.len().to_string() });
                             if !repairs.is_empty() {
                                 ui.label("");
-                                egui::CollapsingHeader::new("Repair log").show(ui, |ui| {
+                                egui::CollapsingHeader::new(tr("Repair log")).show(ui, |ui| {
                                     for r in &repairs {
                                         ui.add(egui::Label::new(egui::RichText::new(r).small()).wrap());
                                     }
@@ -376,7 +379,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 });
             }
             Dialog::Split => {
-                ui.label(egui::RichText::new("Split document").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Split document")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 let Some((vi, id)) = app.active_ids() else { return };
                 let n = app.session.get(id).map(|d| d.info.pages.len()).unwrap_or(0);
@@ -387,27 +390,27 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 if selected.is_empty() && draft.mode == M::Selection {
                     draft.mode = M::Pages;
                 }
-                ui.radio_value(&mut draft.mode, M::Pages, "Number of pages");
+                ui.radio_value(&mut draft.mode, M::Pages, tr("Number of pages"));
                 ui.add_enabled_ui(draft.mode == M::Pages, |ui| {
                     ui.horizontal(|ui| {
                         ui.add_space(24.0);
-                        ui.label("Pages per file");
+                        ui.label(tr("Pages per file"));
                         ui.add(egui::DragValue::new(&mut draft.every).range(1..=n.max(1)));
                     });
                 });
-                ui.radio_value(&mut draft.mode, M::Size, "File size");
+                ui.radio_value(&mut draft.mode, M::Size, tr("File size"));
                 ui.add_enabled_ui(draft.mode == M::Size, |ui| {
                     ui.horizontal(|ui| {
                         ui.add_space(24.0);
-                        ui.label("At most");
+                        ui.label(tr("At most"));
                         ui.add(egui::DragValue::new(&mut draft.size_mb).range(0.05..=2000.0).speed(0.1).suffix(" MB"));
                     });
                 });
                 ui.add_enabled_ui(!marks.is_empty(), |ui| {
-                    ui.radio_value(&mut draft.mode, M::Bookmarks, format!("Top-level bookmarks ({})", marks.len()))
+                    ui.radio_value(&mut draft.mode, M::Bookmarks, trf("Top-level bookmarks ({})", &[&marks.len()]))
                 });
                 ui.add_enabled_ui(!selected.is_empty(), |ui| {
-                    ui.radio_value(&mut draft.mode, M::Selection, "Before each selected page (select pages in Organize)")
+                    ui.radio_value(&mut draft.mode, M::Selection, tr("Before each selected page (select pages in Organize)"))
                 });
                 let plan = match draft.mode {
                     M::Pages => crate::SplitPlan::By(pdfcraft_engine::SplitBy::PageCount(draft.every)),
@@ -424,8 +427,8 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 };
                 ui.add_space(8.0);
                 let text = match files {
-                    Some(f) => format!("Creates {f} file{} from {n} pages.", if f == 1 { "" } else { "s" }),
-                    None => format!("Each file holds as many of the {n} pages as fit."),
+                    Some(f) => trf(if f == 1 { "Creates {} file from {} pages." } else { "Creates {} files from {} pages." }, &[&f, &n]),
+                    None => trf("Each file holds as many of the {} pages as fit.", &[&n]),
                 };
                 ui.label(egui::RichText::new(text).color(t.text_muted));
                 if files.is_none_or(|f| f > 1) {
@@ -438,44 +441,44 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     close = true;
                     return;
                 };
-                ui.label(egui::RichText::new("Replace Pages").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Replace Pages")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 d.to = d.to.clamp(1, count);
                 d.from = d.from.clamp(1, d.to);
                 let n = d.to - d.from + 1;
                 ui.horizontal(|ui| {
-                    ui.label("Original: replace pages");
+                    ui.label(tr("Original: replace pages"));
                     ui.add(egui::DragValue::new(&mut d.from).range(1..=count));
-                    ui.label("to");
+                    ui.label(tr("to"));
                     ui.add(egui::DragValue::new(&mut d.to).range(1..=count));
-                    ui.label(egui::RichText::new(format!("of {count}")).color(t.text_muted));
+                    ui.label(egui::RichText::new(trf("of {}", &[&count])).color(t.text_muted));
                 });
                 let max_start = d.src_pages.saturating_sub(n) + 1;
                 d.src_from = d.src_from.clamp(1, max_start.max(1));
                 ui.horizontal(|ui| {
-                    ui.label(format!("Replacement: pages of {}", d.name));
+                    ui.label(trf("Replacement: pages of {}", &[&d.name]));
                     ui.add(egui::DragValue::new(&mut d.src_from).range(1..=max_start.max(1)));
-                    ui.label(format!("to {}", d.src_from + n - 1));
-                    ui.label(egui::RichText::new(format!("of {}", d.src_pages)).color(t.text_muted));
+                    ui.label(trf("to {}", &[&(d.src_from + n - 1)]));
+                    ui.label(egui::RichText::new(trf("of {}", &[&d.src_pages])).color(t.text_muted));
                 });
                 let fits = n <= d.src_pages;
                 ui.add_space(6.0);
                 ui.label(
                     egui::RichText::new(if fits {
-                        "Only the page content changes: links, comments, form fields and bookmarks on the original pages stay."
+                        tr("Only the page content changes: links, comments, form fields and bookmarks on the original pages stay.")
                     } else {
-                        "The replacement file doesn't have that many pages."
+                        tr("The replacement file doesn't have that many pages.")
                     })
                     .small()
                     .color(t.text_faint),
                 );
                 ui.add_space(10.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ui.add_enabled_ui(fits, |ui| widgets::pill_button(ui, "OK", true)).inner.clicked() {
+                    if ui.add_enabled_ui(fits, |ui| widgets::pill_button(ui, tr("OK"), true)).inner.clicked() {
                         replace_now = true;
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -529,18 +532,18 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             }
             Dialog::Extract => {
                 let count = app.active_ids().map_or(0, |(i, _)| app.views[i].target_pages().len());
-                ui.label(egui::RichText::new("Extract pages").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Extract pages")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.label(format!("{count} page{} selected.", if count == 1 { "" } else { "s" }));
-                ui.checkbox(&mut app.extract_draft.delete, "Delete pages after extracting");
-                ui.checkbox(&mut app.extract_draft.separate, "Extract pages as separate files");
+                ui.label(trf(if count == 1 { "{} page selected." } else { "{} pages selected." }, &[&count]));
+                ui.checkbox(&mut app.extract_draft.delete, tr("Delete pages after extracting"));
+                ui.checkbox(&mut app.extract_draft.separate, tr("Extract pages as separate files"));
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::pill_button(ui, "Extract", true).clicked() {
+                    if widgets::pill_button(ui, tr("Extract"), true).clicked() {
                         extract_now = true;
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -550,70 +553,70 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 use pdfcraft_engine::{PageOrientation as O, PageParity as P};
                 let n = app.active_ids().and_then(|(_, id)| app.session.get(id)).map_or(1, |d| d.info.pages.len());
                 let d = &mut app.rotate_draft;
-                ui.label(egui::RichText::new("Rotate Pages").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Rotate Pages")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 egui::Grid::new("rotate-pages").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-                    ui.label("Direction:");
+                    ui.label(tr("Direction:"));
                     egui::ComboBox::from_id_salt("rotate-dir")
-                        .selected_text(match d.degrees {
+                        .selected_text(tr(match d.degrees {
                             270 => "Counterclockwise 90 degrees",
                             180 => "180 degrees",
                             _ => "Clockwise 90 degrees",
-                        })
+                        }))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut d.degrees, 90, "Clockwise 90 degrees");
-                            ui.selectable_value(&mut d.degrees, 270, "Counterclockwise 90 degrees");
-                            ui.selectable_value(&mut d.degrees, 180, "180 degrees");
+                            ui.selectable_value(&mut d.degrees, 90, tr("Clockwise 90 degrees"));
+                            ui.selectable_value(&mut d.degrees, 270, tr("Counterclockwise 90 degrees"));
+                            ui.selectable_value(&mut d.degrees, 180, tr("180 degrees"));
                         });
                     ui.end_row();
-                    ui.label("Pages:");
+                    ui.label(tr("Pages:"));
                     ui.vertical(|ui| {
-                        ui.radio_value(&mut d.which, 0, "All");
-                        ui.radio_value(&mut d.which, 1, "Selection");
+                        ui.radio_value(&mut d.which, 0, tr("All"));
+                        ui.radio_value(&mut d.which, 1, tr("Selection"));
                         ui.horizontal(|ui| {
-                            ui.radio_value(&mut d.which, 2, "From");
+                            ui.radio_value(&mut d.which, 2, tr("From"));
                             ui.add_enabled(d.which == 2, egui::DragValue::new(&mut d.from).range(1..=n));
-                            ui.label("to");
+                            ui.label(tr("to"));
                             ui.add_enabled(d.which == 2, egui::DragValue::new(&mut d.to).range(1..=n));
-                            ui.label(format!("of {n}"));
+                            ui.label(trf("of {}", &[&n]));
                         });
                     });
                     ui.end_row();
-                    ui.label("Rotate:");
+                    ui.label(tr("Rotate:"));
                     egui::ComboBox::from_id_salt("rotate-parity")
-                        .selected_text(match d.parity {
+                        .selected_text(tr(match d.parity {
                             P::Both => "Even and Odd Pages",
                             P::Even => "Even Pages Only",
                             P::Odd => "Odd Pages Only",
-                        })
+                        }))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut d.parity, P::Both, "Even and Odd Pages");
-                            ui.selectable_value(&mut d.parity, P::Even, "Even Pages Only");
-                            ui.selectable_value(&mut d.parity, P::Odd, "Odd Pages Only");
+                            ui.selectable_value(&mut d.parity, P::Both, tr("Even and Odd Pages"));
+                            ui.selectable_value(&mut d.parity, P::Even, tr("Even Pages Only"));
+                            ui.selectable_value(&mut d.parity, P::Odd, tr("Odd Pages Only"));
                         });
                     ui.end_row();
                     ui.label("");
                     egui::ComboBox::from_id_salt("rotate-orient")
-                        .selected_text(match d.orientation {
+                        .selected_text(tr(match d.orientation {
                             O::Both => "Landscape and Portrait Pages",
                             O::Landscape => "Landscape Pages",
                             O::Portrait => "Portrait Pages",
-                        })
+                        }))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut d.orientation, O::Both, "Landscape and Portrait Pages");
-                            ui.selectable_value(&mut d.orientation, O::Landscape, "Landscape Pages");
-                            ui.selectable_value(&mut d.orientation, O::Portrait, "Portrait Pages");
+                            ui.selectable_value(&mut d.orientation, O::Both, tr("Landscape and Portrait Pages"));
+                            ui.selectable_value(&mut d.orientation, O::Landscape, tr("Landscape Pages"));
+                            ui.selectable_value(&mut d.orientation, O::Portrait, tr("Portrait Pages"));
                         });
                     ui.end_row();
                 });
                 d.to = d.to.max(d.from);
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::pill_button(ui, "OK", true).clicked() {
+                    if widgets::pill_button(ui, tr("OK"), true).clicked() {
                         rotate_now = true;
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -625,26 +628,26 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     close = true;
                     return;
                 };
-                ui.label(egui::RichText::new("Duplicate Field").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Duplicate Field")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.label(format!("Duplicate \"{}\" onto:", d.name));
-                ui.radio_value(&mut d.all, true, "All pages");
+                ui.label(trf("Duplicate \"{}\" onto:", &[&d.name]));
+                ui.radio_value(&mut d.all, true, tr("All pages"));
                 ui.horizontal(|ui| {
-                    ui.radio_value(&mut d.all, false, "From");
+                    ui.radio_value(&mut d.all, false, tr("From"));
                     ui.add_enabled(!d.all, egui::DragValue::new(&mut d.from).range(1..=n));
-                    ui.label("to");
+                    ui.label(tr("to"));
                     ui.add_enabled(!d.all, egui::DragValue::new(&mut d.to).range(1..=n));
-                    ui.label(format!("of {n}"));
+                    ui.label(trf("of {}", &[&n]));
                 });
                 d.to = d.to.max(d.from);
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::pill_button(ui, "OK", true).clicked() {
+                    if widgets::pill_button(ui, tr("OK"), true).clicked() {
                         let pages: Vec<usize> = if d.all { (0..n).collect() } else { (d.from - 1..d.to.min(n)).collect() };
                         duplicate_now = Some(Edit::DuplicateField { name: d.name.clone(), pages });
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -673,7 +676,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     Some(crate::sign_ui::CertAction::Trust(c)) => app.trust_certificate(*c),
                     Some(crate::sign_ui::CertAction::Export(c)) => {
                         let pem = crate::sign_ui::certificate_pem(&c);
-                        app.write_files(&[(format!("{}.cer", c.display_name()), std::sync::Arc::new(pem.into_bytes()))], "Export certificate");
+                        app.write_files(&[(format!("{}.cer", c.display_name()), std::sync::Arc::new(pem.into_bytes()))], tr("Export certificate"));
                     }
                     None => {}
                 }
@@ -693,26 +696,26 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 return;
             }
             Dialog::SummarizeComments => {
-                ui.label(egui::RichText::new("Summarize Options").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Summarize Options")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.label("Choose a layout:");
-                let _ = ui.radio(true, "Comments only");
+                ui.label(tr("Choose a layout:"));
+                let _ = ui.radio(true, tr("Comments only"));
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
-                    ui.label("Sort comments by:");
-                    egui::ComboBox::from_id_salt("summary-sort").selected_text(app.summary_sort.name()).show_ui(ui, |ui| {
+                    ui.label(tr("Sort comments by:"));
+                    egui::ComboBox::from_id_salt("summary-sort").selected_text(tr(app.summary_sort.name())).show_ui(ui, |ui| {
                         for s in pdfcraft_engine::SummarySort::ALL {
-                            ui.selectable_value(&mut app.summary_sort, s, s.name());
+                            ui.selectable_value(&mut app.summary_sort, s, tr(s.name()));
                         }
                     });
                 });
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::pill_button(ui, "Create PDF Comment Summary", true).clicked() {
+                    if widgets::pill_button(ui, tr("Create PDF Comment Summary"), true).clicked() {
                         summarize_now = true;
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -720,16 +723,16 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             }
             Dialog::Revert => {
                 let name = app.active_ids().and_then(|(_, id)| app.session.get(id)).map(|d| d.name.clone()).unwrap_or_default();
-                ui.label(egui::RichText::new("Revert").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Revert")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.label(format!("Revert to the previously saved version of \"{name}\"? Changes since then can't be undone afterwards."));
+                ui.label(trf("Revert to the previously saved version of \"{}\"? Changes since then can't be undone afterwards.", &[&name]));
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::pill_button(ui, "Revert", true).clicked() {
+                    if widgets::pill_button(ui, tr("Revert"), true).clicked() {
                         revert_now = true;
                         close = true;
                     }
-                    if widgets::pill_button(ui, "Cancel", false).clicked() {
+                    if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                         close = true;
                     }
                 });
@@ -889,7 +892,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             }
             Dialog::NumberPages => {
                 use pdfcraft_engine::LabelStyle as L;
-                ui.label(egui::RichText::new("Number pages").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Number pages")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 let Some((_, id)) = app.active_ids() else { return };
                 let n = app.session.get(id).map(|d| d.info.pages.len()).unwrap_or(1).max(1);
@@ -906,15 +909,15 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         .inner
                 };
                 egui::Grid::new("number_pages").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-                    ui.label("Pages");
+                    ui.label(tr("Pages"));
                     ui.horizontal(|ui| {
                         ui.add(egui::DragValue::new(&mut d.from).range(1..=n));
-                        ui.label("to");
+                        ui.label(tr("to"));
                         ui.add(egui::DragValue::new(&mut d.to).range(1..=n));
-                        ui.label(egui::RichText::new(format!("of {n}")).color(t.text_muted));
+                        ui.label(egui::RichText::new(trf("of {}", &[&n])).color(t.text_muted));
                     });
                     ui.end_row();
-                    ui.label("Style");
+                    ui.label(tr("Style"));
                     let styles = [
                         (L::Decimal, "1, 2, 3"),
                         (L::LowerRoman, "i, ii, iii"),
@@ -924,17 +927,17 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         (L::None, "None (prefix only)"),
                     ];
                     let current = styles.iter().find(|(s, _)| *s == d.style).map_or("1, 2, 3", |(_, l)| *l);
-                    egui::ComboBox::from_id_salt("label_style").selected_text(current).show_ui(ui, |ui| {
+                    egui::ComboBox::from_id_salt("label_style").selected_text(tr(current)).show_ui(ui, |ui| {
                         for (s, l) in styles {
-                            ui.selectable_value(&mut d.style, s, l);
+                            ui.selectable_value(&mut d.style, s, tr(l));
                         }
                     });
                     ui.end_row();
-                    let l = ui.label("Prefix");
+                    let l = ui.label(tr("Prefix"));
                     boxed(ui, &mut |ui| ui.add(egui::TextEdit::singleline(&mut d.prefix).desired_width(160.0).frame(egui::Frame::NONE)))
                         .labelled_by(l.id);
                     ui.end_row();
-                    ui.label("Start");
+                    ui.label(tr("Start"));
                     ui.add(egui::DragValue::new(&mut d.start).range(1..=99_999));
                     ui.end_row();
                 });
@@ -946,16 +949,16 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 } else {
                     format!("{}, {} … {}", label(d.start), label(d.start + 1), label(d.start + (d.to - d.from) as u32))
                 };
-                ui.label(egui::RichText::new(format!("Labels: {preview}. Later pages keep their labels.")).color(t.text_muted));
+                ui.label(egui::RichText::new(trf("Labels: {}. Later pages keep their labels.", &[&preview])).color(t.text_muted));
                 number_now = Some(Edit::NumberPages { from: d.from - 1, to: d.to - 1, style: d.style, prefix: d.prefix.clone(), first: d.start });
             }
             Dialog::Recovery => {
                 ui.horizontal(|ui| {
                     ui.add(crate::icons::image("clock-3", 22.0, t.accent));
-                    ui.label(egui::RichText::new("Recover unsaved documents?").font(theme::semibold(18.0)));
+                    ui.label(egui::RichText::new(tr("Recover unsaved documents?")).font(theme::semibold(18.0)));
                 });
                 ui.add_space(6.0);
-                ui.label("PdfCraft didn't shut down normally. These documents had changes that were autosaved:");
+                ui.label(tr("PdfCraft didn't shut down normally. These documents had changes that were autosaved:"));
                 ui.add_space(8.0);
                 let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
                 egui::Grid::new("recoverable").num_columns(2).spacing([18.0, 6.0]).show(ui, |ui| {
@@ -963,25 +966,25 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         ui.label(egui::RichText::new(&m.name).font(theme::medium(13.0)));
                         let mins = now.saturating_sub(m.saved_at) / 60;
                         let when = match mins {
-                            0 => "just now".to_string(),
-                            1..=59 => format!("{mins} min ago"),
-                            _ => format!("{} h ago", mins / 60),
+                            0 => tr("just now").to_string(),
+                            1..=59 => trf("{} min ago", &[&mins]),
+                            _ => trf("{} h ago", &[&(mins / 60)]),
                         };
-                        let lock = if m.encrypted { " · password-protected" } else { "" };
+                        let lock = if m.encrypted { format!(" · {}", tr("password-protected")) } else { String::new() };
                         ui.label(egui::RichText::new(format!("{when}{lock}")).color(t.text_muted));
                         ui.end_row();
                     }
                 });
             }
             Dialog::Shortcuts => {
-                ui.label(egui::RichText::new("Keyboard shortcuts").font(theme::semibold(18.0)));
+                ui.label(egui::RichText::new(tr("Keyboard shortcuts")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 let mac = cfg!(target_os = "macos") || cfg!(target_arch = "wasm32");
                 // Registered commands first (always in sync with the real bindings), then the
                 // keys the document view handles itself.
                 let mut rows: Vec<(String, String)> = pdfcraft_engine::commands::COMMANDS
                     .iter()
-                    .filter_map(|c| c.shortcut.map(|k| (k.label(mac), c.label.trim_end_matches('…').to_string())))
+                    .filter_map(|c| c.shortcut.map(|k| (k.label(mac), tr(c.label).trim_end_matches('…').to_string())))
                     .collect();
                 for (k, v) in [
                     ("⌘G / ⇧⌘G", "Next / previous match"),
@@ -999,7 +1002,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     ("Delete", "Delete selected pages (Organize)"),
                     ("⌘A", "Select all pages (Organize)"),
                 ] {
-                    rows.push((k.to_string(), v.to_string()));
+                    rows.push((k.to_string(), tr(v).to_string()));
                 }
                 egui::ScrollArea::vertical().max_height(460.0).show(ui, |ui| {
                     egui::Grid::new("keys").num_columns(2).spacing([24.0, 6.0]).show(ui, |ui| {
@@ -1016,21 +1019,21 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     widgets::artcraft_mark(ui, 40.0);
                     ui.vertical(|ui| {
                         ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
-                        ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
+                        ui.label(trf("Version {}", &[&env!("CARGO_PKG_VERSION")]));
                     });
                 });
                 ui.add_space(6.0);
-                ui.label("A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0.");
+                ui.label(tr("A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0."));
                 ui.label(
-                    egui::RichText::new(
+                    egui::RichText::new(tr(
                         "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)",
-                    )
+                    ))
                     .color(t.text_muted)
                     .small(),
                 );
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Part of").color(t.text_muted));
+                    ui.label(egui::RichText::new(tr("Part of")).color(t.text_muted));
                     widgets::artcraft_logo(ui, 16.0);
                 });
                 ui.add_space(6.0);
@@ -1043,39 +1046,39 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         let changed = draft_changes(app).is_some_and(|c| !c.is_empty());
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if dialog == Dialog::Recovery {
-                if widgets::pill_button(ui, "Recover", true).clicked() {
+                if widgets::pill_button(ui, tr("Recover"), true).clicked() {
                     recover = Some(true);
                     close = true;
                 }
-                if widgets::pill_button(ui, "Discard", false).clicked() {
+                if widgets::pill_button(ui, tr("Discard"), false).clicked() {
                     recover = Some(false);
                     close = true;
                 }
             } else if dialog == Dialog::NumberPages {
-                if widgets::pill_button(ui, "OK", true).clicked() {
+                if widgets::pill_button(ui, tr("OK"), true).clicked() {
                     apply_number = true;
                     close = true;
                 }
-                if widgets::pill_button(ui, "Cancel", false).clicked() {
+                if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                     close = true;
                 }
             } else if dialog == Dialog::Split {
-                if ui.add_enabled_ui(split_ready.is_some(), |ui| widgets::pill_button(ui, "Split", true)).inner.clicked() {
+                if ui.add_enabled_ui(split_ready.is_some(), |ui| widgets::pill_button(ui, tr("Split"), true)).inner.clicked() {
                     split_now = split_ready.clone();
                     close = true;
                 }
-                if widgets::pill_button(ui, "Cancel", false).clicked() {
+                if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                     close = true;
                 }
             } else if changed {
-                if widgets::pill_button(ui, "OK", true).clicked() {
+                if widgets::pill_button(ui, tr("OK"), true).clicked() {
                     apply = true;
                     close = true;
                 }
-                if widgets::pill_button(ui, "Cancel", false).clicked() {
+                if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                     close = true;
                 }
-            } else if widgets::pill_button(ui, "Close", true).clicked() {
+            } else if widgets::pill_button(ui, tr("Close"), true).clicked() {
                 close = true;
             }
         });
@@ -1133,18 +1136,32 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             let which: Vec<pdfcraft_engine::Hidden> = app.hidden_draft.found.iter().filter(|f| f.2 && f.1 > 0).map(|f| f.0).collect();
             let n: usize = app.hidden_draft.found.iter().filter(|f| f.2).map(|f| f.1).sum();
             if app.apply_edit(Edit::RemoveHidden { which }) {
-                app.notify(format!("Removed {n} hidden item{}. Save to remove them from the file.", if n == 1 { "" } else { "s" }));
+                app.notify(trf(
+                    if n == 1 {
+                        "Removed {} hidden item. Save to remove it from the file."
+                    } else {
+                        "Removed {} hidden items. Save to remove them from the file."
+                    },
+                    &[&n],
+                ));
             }
         }
         Some(Dialog::Sanitize) => {
             if app.apply_edit(Edit::Sanitize) {
-                app.notify("Document sanitized. Save to finish: saving rewrites the whole file.");
+                app.notify(tr("Document sanitized. Save to finish: saving rewrites the whole file."));
             }
         }
         Some(Dialog::RedactApply) => {
             let marks = app.active_ids().and_then(|(_, id)| app.session.get(id)).map_or(0, |d| d.redaction_marks());
             if app.apply_edit(Edit::ApplyRedactions { pages: None }) {
-                app.notify(format!("Applied {marks} redaction mark{}. Save to remove the content from the file.", if marks == 1 { "" } else { "s" }));
+                app.notify(trf(
+                    if marks == 1 {
+                        "Applied {} redaction mark. Save to remove the content from the file."
+                    } else {
+                        "Applied {} redaction marks. Save to remove the content from the file."
+                    },
+                    &[&marks],
+                ));
             }
         }
         _ => {}
@@ -1187,7 +1204,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
     }
     if protect_now && app.apply_edit(app.protect_draft.edit()) {
         app.protect_draft = Default::default();
-        app.notify("Password protection will be applied when you save");
+        app.notify(tr("Password protection will be applied when you save"));
     }
     if apply_number && let Some(edit) = number_now {
         app.apply_edit(edit);
@@ -1289,20 +1306,20 @@ fn save_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
         ui.set_width(420.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("save", 22.0, t.accent));
-            ui.label(egui::RichText::new(format!("Save changes to “{name}” before closing?")).font(theme::semibold(16.0)));
+            ui.label(egui::RichText::new(trf("Save changes to “{}” before closing?", &[&name])).font(theme::semibold(16.0)));
         });
         ui.add_space(6.0);
-        ui.label(egui::RichText::new("Your changes will be lost if you don't save them.").color(t.text_muted));
+        ui.label(egui::RichText::new(tr("Your changes will be lost if you don't save them.")).color(t.text_muted));
         ui.add_space(14.0);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if widgets::pill_button(ui, "Save", true).clicked() {
+            if widgets::pill_button(ui, tr("Save"), true).clicked() {
                 choice = Some(Some(true));
             }
-            if widgets::pill_button(ui, "Cancel", false).clicked() {
+            if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                 choice = Some(None);
             }
             ui.add_space(24.0);
-            if widgets::pill_button(ui, "Don't save", false).clicked() {
+            if widgets::pill_button(ui, tr("Don't save"), false).clicked() {
                 choice = Some(Some(false));
             }
         });
@@ -1316,7 +1333,7 @@ fn save_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
 }
 
 fn yes(b: bool) -> String {
-    if b { "Yes".into() } else { "No".into() }
+    tr(if b { "Yes" } else { "No" }).into()
 }
 
 /// Password prompt for encrypted documents (Acrobat: "Password" dialog on open).
@@ -1329,12 +1346,12 @@ fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
         ui.set_width(400.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("lock", 22.0, t.accent));
-            ui.label(egui::RichText::new("Password required").font(theme::semibold(17.0)));
+            ui.label(egui::RichText::new(tr("Password required")).font(theme::semibold(17.0)));
         });
         ui.add_space(6.0);
-        ui.label(format!("“{}” is protected. Enter a password to open it.", prompt.name));
+        ui.label(trf("“{}” is protected. Enter a password to open it.", &[&prompt.name]));
         ui.add_space(8.0);
-        let r = ui.add(egui::TextEdit::singleline(&mut prompt.input).password(true).hint_text("Password").desired_width(f32::INFINITY));
+        let r = ui.add(egui::TextEdit::singleline(&mut prompt.input).password(true).hint_text(tr("Password")).desired_width(f32::INFINITY));
         // Enter submits. The field keeps focus (we request it every frame), so check the key
         // while it is focused as well as on the frame focus is lost.
         if (r.has_focus() || r.lost_focus()) && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
@@ -1347,10 +1364,10 @@ fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
         }
         ui.add_space(12.0);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if widgets::pill_button(ui, "Open", true).clicked() {
+            if widgets::pill_button(ui, tr("Open"), true).clicked() {
                 submit = true;
             }
-            if widgets::pill_button(ui, "Cancel", false).clicked() {
+            if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
                 cancel = true;
             }
         });

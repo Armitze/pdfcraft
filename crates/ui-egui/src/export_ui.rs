@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use egui::{Align, Layout};
 use pdfcraft_engine::export::{ExportSource, Exporter, ImageFormat};
 
+use crate::i18n::{tr, trf};
 use crate::marks_ui::PageRange;
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
@@ -42,25 +43,25 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: E
     let count = app.active_ids().and_then(|(_, id)| app.session.get(id)).map(|d| d.info.pages.len()).unwrap_or(0);
     let d = &mut app.export_draft;
     ui.label(
-        egui::RichText::new(match kind {
+        egui::RichText::new(tr(match kind {
             ExportKind::Image => "Export to Image",
             ExportKind::Text => "Export to Text",
             ExportKind::AllImages => "Export All Images",
-        })
+        }))
         .font(theme::semibold(18.0)),
     );
     ui.add_space(8.0);
     if kind == ExportKind::Image {
         ui.horizontal(|ui| {
-            ui.label("Resolution");
-            egui::ComboBox::from_id_salt("export-dpi").selected_text(format!("{} pixels/inch", d.dpi)).show_ui(ui, |ui| {
+            ui.label(tr("Resolution"));
+            egui::ComboBox::from_id_salt("export-dpi").selected_text(trf("{} pixels/inch", &[&d.dpi])).show_ui(ui, |ui| {
                 for dpi in [72.0, 96.0, 150.0, 300.0, 600.0] {
-                    ui.selectable_value(&mut d.dpi, dpi, format!("{dpi} pixels/inch"));
+                    ui.selectable_value(&mut d.dpi, dpi, trf("{} pixels/inch", &[&dpi]));
                 }
             });
         });
         ui.horizontal(|ui| {
-            ui.label("Format");
+            ui.label(tr("Format"));
             let mut quality = match d.format {
                 ImageFormat::Jpeg { quality } => quality,
                 _ => 85,
@@ -74,17 +75,17 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: E
                 }
             });
             if let ImageFormat::Jpeg { .. } = d.format {
-                ui.label("Quality");
+                ui.label(tr("Quality"));
                 if ui.add(egui::Slider::new(&mut quality, 10..=100)).changed() {
                     d.format = ImageFormat::Jpeg { quality };
                 }
             }
         });
-        ui.label(egui::RichText::new(format!("One {} file per page, named after the document.", d.format.label())).small().color(t.text_faint));
+        ui.label(egui::RichText::new(trf("One {} file per page, named after the document.", &[&d.format.label()])).small().color(t.text_faint));
     } else if kind == ExportKind::AllImages {
         ui.horizontal(|ui| {
-            ui.label("Exclude images smaller than");
-            let label = |n: u32| if n == 0 { "No limit".to_string() } else { format!("{n} pixels") };
+            ui.label(tr("Exclude images smaller than"));
+            let label = |n: u32| if n == 0 { tr("No limit").to_string() } else { trf("{} pixels", &[&n]) };
             egui::ComboBox::from_id_salt("export-min").selected_text(label(d.min_side)).show_ui(ui, |ui| {
                 for n in [0, 16, 32, 64, 128, 256] {
                     ui.selectable_value(&mut d.min_side, n, label(n));
@@ -92,24 +93,24 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: E
             });
         });
         ui.label(
-            egui::RichText::new("Each image once, named after the document and page. JPEG images are saved unchanged; others as PNG.")
+            egui::RichText::new(tr("Each image once, named after the document and page. JPEG images are saved unchanged; others as PNG."))
                 .small()
                 .color(t.text_faint),
         );
     } else {
-        ui.label(egui::RichText::new("Plain text in reading order; pages are separated by form feeds.").small().color(t.text_faint));
+        ui.label(egui::RichText::new(tr("Plain text in reading order; pages are separated by form feeds.")).small().color(t.text_faint));
     }
     ui.add_space(6.0);
-    ui.label(egui::RichText::new("Pages").font(theme::semibold(12.5)));
+    ui.label(egui::RichText::new(tr("Pages")).font(theme::semibold(12.5)));
     d.range.ui(ui, count);
     ui.add_space(12.0);
     let (mut apply, mut cancel) = (false, false);
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         let ok = !d.range.pages(count).is_empty();
-        if ui.add_enabled_ui(ok, |ui| widgets::pill_button(ui, "Export", true)).inner.clicked() {
+        if ui.add_enabled_ui(ok, |ui| widgets::pill_button(ui, tr("Export"), true)).inner.clicked() {
             apply = true;
         }
-        if widgets::pill_button(ui, "Cancel", false).clicked() {
+        if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
             cancel = true;
         }
     });
@@ -139,17 +140,17 @@ fn run(
         set(0, None);
         let out = match pdfcraft_engine::export::extract_images(&src, &pages, min_side) {
             Ok(o) => o,
-            Err(e) => return format!("Export stopped: {e}"),
+            Err(e) => return trf("Export stopped: {}", &[&e]),
         };
         for (k, img) in out.images.iter().enumerate() {
             if let Err(e) = sink(&pdfcraft_engine::export::image_file_name(&stem, img, k + 1), img.data.clone()) {
-                return format!("Export stopped: {e}");
+                return trf("Export stopped: {}", &[&e]);
             }
         }
         let n = out.images.len();
-        let mut msg = format!("Exported {n} image{}", if n == 1 { "" } else { "s" });
+        let mut msg = exported_images(n);
         if !out.skipped.is_empty() {
-            msg.push_str(&format!(" ({} not exported: {})", out.skipped.len(), out.skipped[0].2));
+            msg.push_str(&trf(" ({} not exported: {})", &[&out.skipped.len(), &out.skipped[0].2]));
         }
         return msg;
     }
@@ -162,19 +163,24 @@ fn run(
                 set(k, None);
                 let result = ex.image(*p, dpi, format).and_then(|img| sink(&format!("{stem}_page_{}.{}", p + 1, format.extension()), img));
                 if let Err(e) = result {
-                    return format!("Export stopped: {e}");
+                    return trf("Export stopped: {}", &[&e]);
                 }
             }
-            format!("Exported {total} image{}", if total == 1 { "" } else { "s" })
+            exported_images(total)
         }
         ExportKind::Text => {
             set(0, None);
             match ex.text_of(&pages).and_then(|text| sink(&format!("{stem}.txt"), text.into_bytes())) {
-                Ok(()) => format!("Exported the text of {total} page{}", if total == 1 { "" } else { "s" }),
-                Err(e) => format!("Export stopped: {e}"),
+                Ok(()) => trf(if total == 1 { "Exported the text of {} page" } else { "Exported the text of {} pages" }, &[&total]),
+                Err(e) => trf("Export stopped: {}", &[&e]),
             }
         }
     }
+}
+
+/// "Exported N images".
+fn exported_images(n: usize) -> String {
+    trf(if n == 1 { "Exported {} image" } else { "Exported {} images" }, &[&n])
 }
 
 impl PdfCraftApp {
@@ -193,7 +199,7 @@ impl PdfCraftApp {
         {
             let dir = match &self.export_dir_override {
                 Some(d) => Some(std::path::PathBuf::from(d)),
-                None => rfd::FileDialog::new().set_title("Choose a folder for the exported files").pick_folder(),
+                None => rfd::FileDialog::new().set_title(tr("Choose a folder for the exported files")).pick_folder(),
             };
             let Some(dir) = dir else { return };
             let st = status.clone();
@@ -205,7 +211,7 @@ impl PdfCraftApp {
                 let msg = run(src, kind, dpi, format, min_side, pages, stem, sink, &st);
                 if let Ok(mut s) = st.lock() {
                     let (done, total) = s.as_ref().map_or((0, 0), |(d, t, _)| (*d, *t));
-                    *s = Some((done.max(total), total, Some(format!("{msg} to {shown}"))));
+                    *s = Some((done.max(total), total, Some(trf("{} to {}", &[&msg, &shown]))));
                 }
             };
             if self.export_dir_override.is_some() {
@@ -233,7 +239,7 @@ impl PdfCraftApp {
                 self.export_status = None;
                 self.notify(msg);
             }
-            Some((done, total, None)) if total > 1 => self.notify(format!("Exporting… {done} of {total}")),
+            Some((done, total, None)) if total > 1 => self.notify(trf("Exporting… {} of {}", &[&done, &total])),
             _ => {}
         }
         if let Some(ctx) = &self.ctx {
