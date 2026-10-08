@@ -6,6 +6,7 @@ use egui::{Align, Layout};
 use pdfcraft_engine::{CommentProps, Edit, NoteIcon};
 
 use crate::comments::swatch_grid;
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
 
@@ -34,7 +35,7 @@ impl PdfCraftApp {
         let picked = match self.attach_override.take() {
             Some(f) => Some(f),
             #[cfg(not(target_arch = "wasm32"))]
-            None => rfd::FileDialog::new().set_title("Attach a file").pick_file().and_then(|p| {
+            None => rfd::FileDialog::new().set_title(tr("Attach a file")).pick_file().and_then(|p| {
                 let data = std::fs::read(&p).ok()?;
                 Some((p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), data))
             }),
@@ -75,7 +76,7 @@ impl PdfCraftApp {
             style.width = w;
         }
         self.comment_prefs.set_style(tool, style);
-        self.notify(format!("New {} comments will look like this one", tool.label().to_lowercase()));
+        self.notify(trf("New {} comments will look like this one", &[&tr(tool.label()).to_lowercase()]));
     }
 
     /// Open Comment Properties for the comment at `(page, index)` of the active document.
@@ -131,12 +132,12 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
         })
         .unwrap_or_default();
     let Some(d) = app.comment_props.as_mut() else { return (false, true) };
-    let kind = crate::comments_panel::subtype_label(&d.edited.subtype).to_string();
-    ui.label(egui::RichText::new(format!("{kind} Properties")).font(theme::semibold(18.0)));
+    let kind = tr(crate::comments_panel::subtype_label(&d.edited.subtype)).to_string();
+    ui.label(egui::RichText::new(trf("{} Properties", &[&kind])).font(theme::semibold(18.0)));
     ui.add_space(6.0);
     ui.horizontal(|ui| {
         for (tab, label) in [(PropsTab::Appearance, "Appearance"), (PropsTab::General, "General"), (PropsTab::ReviewHistory, "Review History")] {
-            if widgets::mode_tab(ui, label, d.tab == tab).clicked() {
+            if widgets::mode_tab(ui, tr(label), d.tab == tab).clicked() {
                 d.tab = tab;
             }
         }
@@ -147,32 +148,32 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     match d.tab {
         PropsTab::Appearance => {
             if !e.restylable {
-                ui.label(egui::RichText::new("This comment's appearance can't be changed yet.").color(t.text_muted));
+                ui.label(egui::RichText::new(tr("This comment's appearance can't be changed yet.")).color(t.text_muted));
             }
             ui.add_enabled_ui(e.restylable, |ui| {
                 egui::Grid::new("comment-props").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
                     if let Some(icon) = e.icon.as_mut() {
-                        ui.label("Icon");
-                        egui::ComboBox::from_id_salt("note-icon").selected_text(icon.name()).show_ui(ui, |ui| {
+                        ui.label(tr("Icon"));
+                        egui::ComboBox::from_id_salt("note-icon").selected_text(tr(icon.name())).show_ui(ui, |ui| {
                             for i in ICONS {
-                                ui.selectable_value(icon, i, i.name());
+                                ui.selectable_value(icon, i, tr(i.name()));
                             }
                         });
                         ui.end_row();
                     }
-                    ui.label("Colour");
+                    ui.label(tr("Colour"));
                     if let Some(c) = swatch_grid(ui, e.color) {
                         e.color = Some(c);
                     }
                     ui.end_row();
-                    ui.label("Opacity");
+                    ui.label(tr("Opacity"));
                     let mut pct = e.opacity * 100.0;
                     if ui.add(egui::Slider::new(&mut pct, 0.0..=100.0).suffix("%")).changed() {
                         e.opacity = pct / 100.0;
                     }
                     ui.end_row();
                     if let Some(w) = e.width.as_mut() {
-                        ui.label("Thickness");
+                        ui.label(tr("Thickness"));
                         ui.add(egui::Slider::new(w, 0.5..=12.0).step_by(0.5).suffix(" pt"));
                         ui.end_row();
                     }
@@ -181,34 +182,34 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
         }
         PropsTab::General => {
             egui::Grid::new("comment-general").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
-                let l = ui.label("Author");
+                let l = ui.label(tr("Author"));
                 ui.add(egui::TextEdit::singleline(&mut e.author).desired_width(280.0)).labelled_by(l.id);
                 ui.end_row();
-                let l = ui.label("Subject");
+                let l = ui.label(tr("Subject"));
                 ui.add(egui::TextEdit::singleline(&mut e.subject).desired_width(280.0)).labelled_by(l.id);
                 ui.end_row();
-                ui.label("Modified");
+                ui.label(tr("Modified"));
                 ui.label(e.modified.as_deref().map(pdfcraft_render::pretty_date).unwrap_or_else(|| "—".into()));
                 ui.end_row();
             });
         }
         PropsTab::ReviewHistory => {
             if history.is_empty() {
-                ui.label(egui::RichText::new("No status has been set.").color(t.text_muted));
+                ui.label(egui::RichText::new(tr("No status has been set.")).color(t.text_muted));
             }
             for (state, who, when) in &history {
-                ui.label(format!("{state} — {who}  {when}"));
+                ui.label(format!("{} — {who}  {when}", tr(state)));
             }
         }
     }
     ui.add_space(12.0);
-    ui.checkbox(&mut d.edited.locked, "Locked");
+    ui.checkbox(&mut d.edited.locked, tr("Locked"));
     let (mut apply, mut cancel) = (false, false);
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-        if widgets::pill_button(ui, "OK", true).clicked() {
+        if widgets::pill_button(ui, tr("OK"), true).clicked() {
             apply = true;
         }
-        if widgets::pill_button(ui, "Cancel", false).clicked() {
+        if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
             cancel = true;
         }
     });

@@ -8,6 +8,7 @@ use pdfcraft_engine::{Edit, NewAnnotation, REDACT_PATTERNS, RedactPattern, Rgb, 
 use pdfcraft_render::DocInfo;
 
 use crate::canvas::{DocView, PageXform};
+use crate::i18n::{tr, trf};
 use crate::theme::Tokens;
 use crate::{PdfCraftApp, widgets};
 
@@ -201,15 +202,15 @@ impl PdfCraftApp {
 
 /// Redact pages ("Mark Page Range"). Returns (apply, cancel).
 pub(crate) fn pages_body(ui: &mut egui::Ui, d: &mut PagesDraft, pages: usize, _t: &Tokens) -> (bool, bool) {
-    ui.label(egui::RichText::new("Mark Page Range").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Mark Page Range")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
-    ui.radio_value(&mut d.current, true, "Current page");
+    ui.radio_value(&mut d.current, true, tr("Current page"));
     ui.horizontal(|ui| {
-        ui.radio_value(&mut d.current, false, "Pages from");
+        ui.radio_value(&mut d.current, false, tr("Pages from"));
         ui.add_enabled(!d.current, egui::DragValue::new(&mut d.from).range(1..=pages));
-        ui.label("to");
+        ui.label(tr("to"));
         ui.add_enabled(!d.current, egui::DragValue::new(&mut d.to).range(1..=pages));
-        ui.label(format!("of {pages}"));
+        ui.label(trf("of {}", &[&pages]));
     });
     d.to = d.to.max(d.from);
     ui.add_space(12.0);
@@ -219,29 +220,28 @@ pub(crate) fn pages_body(ui: &mut egui::Ui, d: &mut PagesDraft, pages: usize, _t
 /// Find text and redact. Returns (search, cancel).
 pub(crate) fn search_body(ui: &mut egui::Ui, d: &mut SearchDraft, t: &Tokens) -> (bool, bool) {
     ui.set_width(420.0);
-    ui.label(egui::RichText::new("Find text and redact").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Find text and redact")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
-    ui.radio_value(&mut d.patterns, false, "Single word or phrase");
+    ui.radio_value(&mut d.patterns, false, tr("Single word or phrase"));
     let mut enter = false;
     ui.add_enabled_ui(!d.patterns, |ui| {
-        let r = ui.add(egui::TextEdit::singleline(&mut d.text).hint_text("Text to find").desired_width(380.0));
+        let r = ui.add(egui::TextEdit::singleline(&mut d.text).hint_text(tr("Text to find")).desired_width(380.0));
         enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
     });
     ui.add_space(6.0);
-    ui.radio_value(&mut d.patterns, true, "Patterns");
+    ui.radio_value(&mut d.patterns, true, tr("Patterns"));
     ui.add_enabled_ui(d.patterns, |ui| {
-        egui::ComboBox::from_id_salt("redact-pattern").selected_text(d.pattern.label()).width(240.0).show_ui(ui, |ui| {
+        egui::ComboBox::from_id_salt("redact-pattern").selected_text(tr(d.pattern.label())).width(240.0).show_ui(ui, |ui| {
             for p in REDACT_PATTERNS {
-                ui.selectable_value(&mut d.pattern, p, p.label());
+                ui.selectable_value(&mut d.pattern, p, tr(p.label()));
             }
         });
     });
     ui.add_space(6.0);
-    ui.label(egui::RichText::new("Text in images isn't found; recognise text (OCR) first.").small().color(t.text_faint));
+    ui.label(egui::RichText::new(tr("Text in images isn't found; recognise text (OCR) first.")).small().color(t.text_faint));
     if let Some(n) = d.found {
-        ui.label(
-            egui::RichText::new(if n == 0 { "No matches.".to_string() } else { format!("{n} match(es) marked for redaction.") }).color(t.text_muted),
-        );
+        let found = if n == 0 { tr("No matches.").to_string() } else { trf("{} match(es) marked for redaction.", &[&n]) };
+        ui.label(egui::RichText::new(found).color(t.text_muted));
     }
     ui.add_space(12.0);
     let (go, cancel) = buttons(ui, "Mark all", true);
@@ -251,13 +251,13 @@ pub(crate) fn search_body(ui: &mut egui::Ui, d: &mut SearchDraft, t: &Tokens) ->
 /// Redaction Tool Properties. Returns (apply, cancel).
 pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) -> (bool, bool) {
     ui.set_width(380.0);
-    ui.label(egui::RichText::new("Redaction Tool Properties").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Redaction Tool Properties")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
     egui::Grid::new("redact-props").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
-        ui.label("Redacted area fill colour:");
+        ui.label(tr("Redacted area fill colour:"));
         ui.horizontal(|ui| {
             let mut none = d.fill.is_none();
-            if ui.checkbox(&mut none, "No colour").changed() {
+            if ui.checkbox(&mut none, tr("No colour")).changed() {
                 d.fill = if none { None } else { Some([0.0, 0.0, 0.0]) };
             }
         });
@@ -268,14 +268,14 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         }
         ui.end_row();
         ui.label("");
-        ui.checkbox(&mut d.use_overlay, "Use overlay text");
+        ui.checkbox(&mut d.use_overlay, tr("Use overlay text"));
         ui.end_row();
-        let l = ui.label("Custom text:");
+        let l = ui.label(tr("Custom text:"));
         ui.add_enabled(d.use_overlay, egui::TextEdit::singleline(&mut d.overlay).desired_width(220.0)).labelled_by(l.id);
         ui.end_row();
         let on = d.use_overlay;
         let look = &mut d.look;
-        ui.label("Font:");
+        ui.label(tr("Font:"));
         ui.add_enabled_ui(on, |ui| {
             egui::ComboBox::from_id_salt("overlay-font").selected_text(look.font.name()).show_ui(ui, |ui| {
                 for f in pdfcraft_engine::OverlayFont::ALL {
@@ -284,11 +284,11 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
             });
         });
         ui.end_row();
-        ui.label("Font size:");
+        ui.label(tr("Font size:"));
         ui.add_enabled_ui(on, |ui| {
             ui.horizontal(|ui| {
                 let mut auto = look.size <= 0.0;
-                if ui.checkbox(&mut auto, "Auto-size text to fit redaction region").changed() {
+                if ui.checkbox(&mut auto, tr("Auto-size text to fit redaction region")).changed() {
                     look.size = if auto { 0.0 } else { 10.0 };
                 }
                 if !auto {
@@ -297,7 +297,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
             });
         });
         ui.end_row();
-        ui.label("Font colour:");
+        ui.label(tr("Font colour:"));
         ui.add_enabled_ui(on, |ui| {
             if let Some(c) = crate::comments::swatch_grid(ui, Some(look.color)) {
                 look.color = c;
@@ -305,13 +305,13 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         });
         ui.end_row();
         ui.label("");
-        ui.add_enabled(on, egui::Checkbox::new(&mut look.repeat, "Repeat overlay text"));
+        ui.add_enabled(on, egui::Checkbox::new(&mut look.repeat, tr("Repeat overlay text")));
         ui.end_row();
-        ui.label("Text alignment:");
+        ui.label(tr("Text alignment:"));
         ui.add_enabled_ui(on, |ui| {
             ui.horizontal(|ui| {
                 for (a, label) in [(0u8, "Left"), (1, "Center"), (2, "Right")] {
-                    ui.radio_value(&mut look.align, a, label);
+                    ui.radio_value(&mut look.align, a, tr(label));
                 }
             });
         });
@@ -324,15 +324,22 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
 /// Apply redactions confirmation. Returns (apply, cancel).
 pub(crate) fn apply_body(ui: &mut egui::Ui, marks: usize, t: &Tokens) -> (bool, bool) {
     ui.set_width(420.0);
-    ui.label(egui::RichText::new("Apply redactions").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Apply redactions")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
-    ui.label(format!(
-        "You are about to apply {marks} redaction mark{}. Text, images and drawings under the marks, and comments and form fields that overlap them, are removed permanently.",
-        if marks == 1 { "" } else { "s" }
-    ));
+    ui.label(if marks == 1 {
+        trf(
+            "You are about to apply {} redaction mark. Text, images and drawings under the marks, and comments and form fields that overlap them, are removed permanently.",
+            &[&marks],
+        )
+    } else {
+        trf(
+            "You are about to apply {} redaction marks. Text, images and drawings under the marks, and comments and form fields that overlap them, are removed permanently.",
+            &[&marks],
+        )
+    });
     ui.add_space(4.0);
     ui.label(
-        egui::RichText::new("Save the document afterwards: saving rewrites the whole file so no trace of the removed content stays in it.")
+        egui::RichText::new(tr("Save the document afterwards: saving rewrites the whole file so no trace of the removed content stays in it."))
             .small()
             .color(t.text_muted),
     );
@@ -340,13 +347,14 @@ pub(crate) fn apply_body(ui: &mut egui::Ui, marks: usize, t: &Tokens) -> (bool, 
     buttons(ui, "Apply", true)
 }
 
+/// The dialog's buttons; `ok` is the English key of the primary one.
 fn buttons(ui: &mut egui::Ui, ok: &str, primary: bool) -> (bool, bool) {
     let (mut a, mut c) = (false, false);
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        if widgets::pill_button(ui, ok, primary).clicked() {
+        if widgets::pill_button(ui, tr(ok), primary).clicked() {
             a = true;
         }
-        if widgets::pill_button(ui, "Cancel", false).clicked() {
+        if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
             c = true;
         }
     });
@@ -372,33 +380,33 @@ impl PdfCraftApp {
 /// Returns (remove, cancel).
 pub(crate) fn hidden_body(ui: &mut egui::Ui, d: &mut HiddenDraft, t: &Tokens) -> (bool, bool) {
     ui.set_width(440.0);
-    ui.label(egui::RichText::new("Remove hidden information").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Remove hidden information")).font(crate::theme::semibold(18.0)));
     ui.add_space(4.0);
-    ui.label(egui::RichText::new("Select the items to remove from this document.").color(t.text_muted));
+    ui.label(egui::RichText::new(tr("Select the items to remove from this document.")).color(t.text_muted));
     ui.add_space(8.0);
     let total: usize = d.found.iter().map(|f| f.1).sum();
     for (h, n, on) in d.found.iter_mut() {
         ui.add_enabled_ui(*n > 0, |ui| {
             ui.horizontal(|ui| {
-                ui.checkbox(on, h.label());
+                ui.checkbox(on, tr(h.label()));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(egui::RichText::new(if *n == 0 { "None found".to_string() } else { n.to_string() }).color(t.text_muted));
+                    ui.label(egui::RichText::new(if *n == 0 { tr("None found").to_string() } else { n.to_string() }).color(t.text_muted));
                 });
             });
         });
     }
     ui.add_space(6.0);
     ui.label(
-        egui::RichText::new("Form fields are flattened: their values stay visible. Saving rewrites the whole file.").small().color(t.text_faint),
+        egui::RichText::new(tr("Form fields are flattened: their values stay visible. Saving rewrites the whole file.")).small().color(t.text_faint),
     );
     ui.add_space(12.0);
     let any = d.found.iter().any(|f| f.2 && f.1 > 0);
     let (mut a, mut c) = (false, false);
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        if ui.add_enabled_ui(any && total > 0, |ui| widgets::pill_button(ui, "Remove", true)).inner.clicked() {
+        if ui.add_enabled_ui(any && total > 0, |ui| widgets::pill_button(ui, tr("Remove"), true)).inner.clicked() {
             a = true;
         }
-        if widgets::pill_button(ui, "Cancel", false).clicked() {
+        if widgets::pill_button(ui, tr("Cancel"), false).clicked() {
             c = true;
         }
     });
@@ -408,12 +416,12 @@ pub(crate) fn hidden_body(ui: &mut egui::Ui, d: &mut HiddenDraft, t: &Tokens) ->
 /// Sanitize Document confirmation. Returns (sanitize, cancel).
 pub(crate) fn sanitize_body(ui: &mut egui::Ui, t: &Tokens) -> (bool, bool) {
     ui.set_width(440.0);
-    ui.label(egui::RichText::new("Sanitize document").font(crate::theme::semibold(18.0)));
+    ui.label(egui::RichText::new(tr("Sanitize document")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
-    ui.label("Sanitizing removes hidden information from the document: metadata, file attachments, comments, form fields (flattened), hidden text and layers, bookmarks, links, actions and scripts, and private application data.");
+    ui.label(tr("Sanitizing removes hidden information from the document: metadata, file attachments, comments, form fields (flattened), hidden text and layers, bookmarks, links, actions and scripts, and private application data."));
     ui.add_space(4.0);
     ui.label(
-        egui::RichText::new("Save the document afterwards; saving rewrites the whole file so nothing removed stays in it.")
+        egui::RichText::new(tr("Save the document afterwards; saving rewrites the whole file so nothing removed stays in it."))
             .small()
             .color(t.text_muted),
     );
