@@ -69,6 +69,7 @@ mod widgets;
 
 use pdfcraft_engine::{DocId, Session};
 
+use crate::i18n::{tr, trf};
 pub use canvas::DocView;
 pub use editing::{CloseRequest, SaveTarget};
 pub use files::{ExtractDraft, FilePurpose, RotateDraft, SplitDraft, SplitMode, SplitPlan};
@@ -623,14 +624,14 @@ impl PdfCraftApp {
         let id = match self.session.open(name, path.clone(), bytes.clone(), password) {
             Ok(id) => id,
             Err(e @ (OpenError::NeedsPassword | OpenError::WrongPassword)) => {
-                let error = matches!(e, OpenError::WrongPassword).then(|| "Incorrect password. Try again.".to_string());
+                let error = matches!(e, OpenError::WrongPassword).then(|| tr("Incorrect password. Try again.").to_string());
                 self.password_prompt = Some(PasswordPrompt { name: name.to_string(), path, bytes, input: String::new(), error });
                 return Ok(());
             }
             Err(e) => return Err(e.to_string()),
         };
         self.password_prompt = None;
-        let doc = self.session.get(id).ok_or("the document could not be opened")?;
+        let doc = self.session.get(id).ok_or_else(|| tr("the document could not be opened").to_string())?;
         let pages = doc.info.pages.len();
         // Acrobat opens straight to the Comments panel when a document has comments.
         if self.right.is_none() {
@@ -665,10 +666,10 @@ impl PdfCraftApp {
         match f.bytes() {
             Ok(bytes) => {
                 if let Err(e) = self.open_bytes(&name, None, bytes) {
-                    self.notify(format!("Couldn't open {name}: {e}"));
+                    self.notify(trf("Couldn't open {}: {}", &[&name, &e]));
                 }
             }
-            Err(e) => self.notify(format!("Couldn't read {name}: {e}")),
+            Err(e) => self.notify(trf("Couldn't read {}: {}", &[&name, &e])),
         }
     }
 
@@ -694,22 +695,22 @@ impl PdfCraftApp {
         let Some(att) = d.info.attachments.get(index).cloned() else { return };
         let data = pdfcraft_render::attachment_data(&d.bytes, d.password.as_deref(), &att);
         match (data, open) {
-            (Err(e), _) => self.notify(format!("Couldn't read {}: {e}", att.name)),
+            (Err(e), _) => self.notify(trf("Couldn't read {}: {}", &[&att.name, &e])),
             (Ok(bytes), true) => {
                 if let Err(e) = self.open_bytes(&att.name, None, bytes) {
-                    self.notify(format!("Couldn't open {}: {e}", att.name));
+                    self.notify(trf("Couldn't open {}: {}", &[&att.name, &e]));
                 }
             }
             (Ok(bytes), false) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = rfd::FileDialog::new().set_file_name(&att.name).save_file() {
                     match std::fs::write(&path, &bytes) {
-                        Ok(()) => self.notify(format!("Saved {}", path.display())),
-                        Err(e) => self.notify(format!("Couldn't save: {e}")),
+                        Ok(()) => self.notify(trf("Saved {}", &[&path.display()])),
+                        Err(e) => self.notify(trf("Couldn't save: {}", &[&e])),
                     }
                 }
                 #[cfg(target_arch = "wasm32")]
-                self.notify(format!("Downloading attachments on the web arrives with M3.10 ({} bytes ready)", bytes.len()));
+                self.notify(trf("Downloading attachments on the web arrives with M3.10 ({} bytes ready)", &[&bytes.len()]));
             }
         }
     }
@@ -725,7 +726,7 @@ impl PdfCraftApp {
         let Some(p) = self.password_prompt.take() else { return };
         let Some(pw) = password else { return };
         match self.try_open(&p.name, p.path, p.bytes, Some(&pw)) {
-            Err(e) => self.notify(format!("Couldn't open {}: {e}", p.name)),
+            Err(e) => self.notify(trf("Couldn't open {}: {}", &[&p.name, &e])),
             // A recovered encrypted document is open once the prompt is gone.
             Ok(()) if self.password_prompt.is_none() => {
                 if let Some(meta) = self.pending_recovered.clone() {
@@ -742,17 +743,19 @@ impl PdfCraftApp {
         match std::fs::read(path) {
             Ok(bytes) => {
                 if let Err(e) = self.open_bytes(&name, Some(path.to_string()), bytes) {
-                    self.notify(format!("Couldn't open {name}: {e}"));
+                    self.notify(trf("Couldn't open {}: {}", &[&name, &e]));
                 }
             }
-            Err(e) => self.notify(format!("Couldn't read {name}: {e}")),
+            Err(e) => self.notify(trf("Couldn't read {}: {}", &[&name, &e])),
         }
     }
 
     pub fn open_dialog(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(p) =
-            rfd::FileDialog::new().add_filter("PDF", &["pdf"]).add_filter("Images and text (converted to PDF)", &create_ui::CONVERTIBLE).pick_file()
+        if let Some(p) = rfd::FileDialog::new()
+            .add_filter("PDF", &["pdf"])
+            .add_filter(tr("Images and text (converted to PDF)"), &create_ui::CONVERTIBLE)
+            .pick_file()
         {
             self.open_path(&p.to_string_lossy());
         }
@@ -760,9 +763,10 @@ impl PdfCraftApp {
         #[cfg(target_arch = "wasm32")]
         {
             let inbox = self.inbox.clone();
+            let images = tr("Images and text").to_string();
             wasm_bindgen_futures::spawn_local(async move {
                 if let Some(h) =
-                    rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter("Images and text", &create_ui::CONVERTIBLE).pick_file().await
+                    rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter(&images, &create_ui::CONVERTIBLE).pick_file().await
                 {
                     let bytes = h.read().await;
                     if let Ok(mut q) = inbox.lock() {
@@ -823,17 +827,17 @@ impl PdfCraftApp {
             return;
         }
         // Not implemented yet: say which milestone ships it.
-        let when = pdfcraft_engine::catalog::TOOL_GROUPS
+        let message = pdfcraft_engine::catalog::TOOL_GROUPS
             .iter()
             .flat_map(|g| g.sections.iter().flat_map(|s| s.items.iter()))
             .find(|i| i.command == command)
             .map(|i| match i.availability {
-                pdfcraft_engine::catalog::Availability::Planned(m) => format!("ships in milestone {m}"),
-                pdfcraft_engine::catalog::Availability::Provider => "needs an AI provider (off by default)".to_string(),
-                pdfcraft_engine::catalog::Availability::Ready => "is available".to_string(),
+                pdfcraft_engine::catalog::Availability::Planned(m) => trf("`{}` ships in milestone {}", &[&command, &m]),
+                pdfcraft_engine::catalog::Availability::Provider => trf("`{}` needs an AI provider (off by default)", &[&command]),
+                pdfcraft_engine::catalog::Availability::Ready => trf("`{}` is available", &[&command]),
             })
-            .unwrap_or_else(|| "is not available yet".into());
-        self.notify(format!("`{command}` {when}"));
+            .unwrap_or_else(|| trf("`{}` is not available yet", &[&command]));
+        self.notify(message);
     }
 
     /// Serialize the user's persistent state (recent files, theme). Local only.
@@ -1156,7 +1160,7 @@ impl eframe::App for PdfCraftApp {
         let arrived: Vec<(String, Vec<u8>)> = self.inbox.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
         for (name, bytes) in arrived {
             if let Err(e) = self.open_bytes(&name, None, bytes) {
-                self.notify(format!("Couldn't open {name}: {e}"));
+                self.notify(trf("Couldn't open {}: {}", &[&name, &e]));
             }
         }
         let os_events = self.os_events.as_mut().map(|poll| poll()).unwrap_or_default();

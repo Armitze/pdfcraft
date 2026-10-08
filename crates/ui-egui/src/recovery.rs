@@ -12,6 +12,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::PdfCraftApp;
+use crate::i18n::trf;
 
 /// How often unsaved changes are written to the recovery folder.
 pub const AUTOSAVE_SECS: f64 = 60.0;
@@ -162,7 +163,7 @@ impl PdfCraftApp {
             let bytes = match store.read(key) {
                 Ok(b) => b,
                 Err(e) => {
-                    self.notify(format!("Couldn't recover {}: {e}", meta.name));
+                    self.notify(trf("Couldn't recover {}: {}", &[&meta.name, &e]));
                     continue;
                 }
             };
@@ -173,7 +174,7 @@ impl PdfCraftApp {
             match self.open_bytes(&meta.name, None, bytes) {
                 Ok(()) if self.password_prompt.is_none() => self.finish_recovery(&meta),
                 Ok(()) => {}
-                Err(e) => self.notify(format!("Couldn't recover {}: {e}", meta.name)),
+                Err(e) => self.notify(trf("Couldn't recover {}: {}", &[&meta.name, &e])),
             }
         }
         self.recoverable.retain(|m| !keys.contains(&m.key));

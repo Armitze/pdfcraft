@@ -8,6 +8,7 @@ use std::sync::Arc;
 use pdfcraft_engine::{Edit, SplitBy};
 
 use crate::PdfCraftApp;
+use crate::i18n::{tr, trf};
 
 /// Why files were picked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,7 +110,7 @@ impl PdfCraftApp {
     /// Ask for a PDF whose pages to insert after the selection (Organize ▸ Insert from file).
     pub fn insert_from_file_dialog(&mut self) {
         if self.active.is_none() {
-            self.notify("Open a document first");
+            self.notify(tr("Open a document first"));
             return;
         }
         self.pick_files(FilePurpose::InsertPages, false);
@@ -126,7 +127,7 @@ impl PdfCraftApp {
                 match std::fs::read(&p) {
                     Ok(b) => files.push((name, b)),
                     Err(e) => {
-                        self.notify(format!("Couldn't read {name}: {e}"));
+                        self.notify(trf("Couldn't read {}: {}", &[&name, &e]));
                         return;
                     }
                 }
@@ -182,7 +183,7 @@ impl PdfCraftApp {
 
     pub fn replace_pages_dialog(&mut self) {
         if self.active.is_none() {
-            self.notify("Open a document first");
+            self.notify(tr("Open a document first"));
             return;
         }
         self.pick_files(FilePurpose::ReplacePages, false);
@@ -195,7 +196,7 @@ impl PdfCraftApp {
         let src_pages = match self.session.page_count_of(&name, &bytes) {
             Ok(n) => n,
             Err(e) => {
-                self.notify(format!("Couldn't use {name}: {e}"));
+                self.notify(trf("Couldn't use {}: {}", &[&name, &e]));
                 return;
             }
         };
@@ -225,19 +226,19 @@ impl PdfCraftApp {
                 match self.session.extract(id, &[p]) {
                     Ok(bytes) => named.push((format!("{stem} (page {}).pdf", p + 1), bytes)),
                     Err(e) => {
-                        self.notify(format!("Couldn't extract pages: {e}"));
+                        self.notify(trf("Couldn't extract pages: {}", &[&e]));
                         return;
                     }
                 }
             }
-            if self.write_files(&named, "Choose a folder for the extracted pages") == 0 {
+            if self.write_files(&named, tr("Choose a folder for the extracted pages")) == 0 {
                 return;
             }
         } else {
             match self.session.extract(id, &pages) {
-                Ok(bytes) => self.open_created(&format!("{stem} (extract).pdf"), bytes, &format!("Extracted {} page(s)", pages.len())),
+                Ok(bytes) => self.open_created(&format!("{stem} (extract).pdf"), bytes, &trf("Extracted {} page(s)", &[&pages.len()])),
                 Err(e) => {
-                    self.notify(format!("Couldn't extract pages: {e}"));
+                    self.notify(trf("Couldn't extract pages: {}", &[&e]));
                     return;
                 }
             }
@@ -260,18 +261,20 @@ impl PdfCraftApp {
             let Some(dir) = dir else { return 0 };
             for (name, bytes) in named {
                 if let Err(e) = crate::editing::write_atomically(&dir.join(name).to_string_lossy(), bytes) {
-                    self.notify(format!("Couldn't write {name}: {e}"));
+                    self.notify(trf("Couldn't write {}: {}", &[&name, &e]));
                     return 0;
                 }
             }
-            self.notify(format!("Wrote {} file{} to {}", named.len(), if named.len() == 1 { "" } else { "s" }, dir.display()));
+            let n = named.len();
+            let dir = dir.display();
+            self.notify(if n == 1 { trf("Wrote {} file to {}", &[&n, &dir]) } else { trf("Wrote {} files to {}", &[&n, &dir]) });
         }
         #[cfg(target_arch = "wasm32")]
         {
             let _ = title;
             for (name, bytes) in named {
                 if let Err(e) = crate::editing::download(name, bytes) {
-                    self.notify(format!("Couldn't download {name}: {e}"));
+                    self.notify(trf("Couldn't download {}: {}", &[&name, &e]));
                     return 0;
                 }
             }
@@ -292,7 +295,7 @@ impl PdfCraftApp {
         };
         let pages = pdfcraft_engine::filter_pages(&doc.info, &base, d.parity, d.orientation);
         if pages.is_empty() {
-            self.notify("No pages match those choices");
+            self.notify(tr("No pages match those choices"));
             return;
         }
         self.apply_edit(pdfcraft_engine::Edit::RotatePages { pages, degrees: d.degrees });
@@ -315,7 +318,7 @@ impl PdfCraftApp {
         let parts = match parts {
             Ok(p) => p,
             Err(e) => {
-                self.notify(format!("Couldn't split: {e}"));
+                self.notify(trf("Couldn't split: {}", &[&e]));
                 return 0;
             }
         };
@@ -333,7 +336,7 @@ impl PdfCraftApp {
                 (name, bytes)
             })
             .collect();
-        self.write_files(&named, "Choose a folder for the split files")
+        self.write_files(&named, tr("Choose a folder for the split files"))
     }
 
     /// Summarize Comments: make the summary and open it as a new document.
@@ -342,8 +345,10 @@ impl PdfCraftApp {
         let stem =
             self.session.get(id).map(|d| std::path::Path::new(&d.name).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default());
         match self.session.summarize_comments(id, self.summary_sort) {
-            Ok(bytes) => self.open_created(&format!("Summary of comments on {}.pdf", stem.unwrap_or_default()), bytes, "Created a comment summary"),
-            Err(e) => self.notify(format!("Couldn't summarize comments: {e}")),
+            Ok(bytes) => {
+                self.open_created(&format!("Summary of comments on {}.pdf", stem.unwrap_or_default()), bytes, tr("Created a comment summary"))
+            }
+            Err(e) => self.notify(trf("Couldn't summarize comments: {}", &[&e])),
         }
     }
 
@@ -355,7 +360,7 @@ impl PdfCraftApp {
                 self.active = Some(self.views.len() - 1);
                 self.notify(message);
             }
-            Err(e) => self.notify(format!("Couldn't open the result: {e}")),
+            Err(e) => self.notify(trf("Couldn't open the result: {}", &[&e])),
         }
     }
 }
@@ -373,8 +378,8 @@ impl PdfCraftApp {
                 Some(p) if [".xfdf", ".fdf", ".xml", ".csv", ".txt"].iter().any(|e| p.ends_with(e)) => Some(std::path::PathBuf::from(p)),
                 Some(_) => None,
                 None => rfd::FileDialog::new()
-                    .add_filter("Comment and form data", &["xfdf", "fdf", "xml", "csv", "txt"])
-                    .set_title("Import data")
+                    .add_filter(tr("Comment and form data"), &["xfdf", "fdf", "xml", "csv", "txt"])
+                    .set_title(tr("Import data"))
                     .pick_file(),
             };
             let Some(path) = picked else { return };
@@ -383,11 +388,11 @@ impl PdfCraftApp {
                     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                     self.apply_edit(pdfcraft_engine::Edit::ImportData { name, bytes: std::sync::Arc::new(bytes) });
                 }
-                Err(e) => self.notify(format!("Couldn't read {}: {e}", path.display())),
+                Err(e) => self.notify(trf("Couldn't read {}: {}", &[&path.display(), &e])),
             }
         }
         #[cfg(target_arch = "wasm32")]
-        self.notify("Importing data arrives on the web with file pickers for data files");
+        self.notify(tr("Importing data arrives on the web with file pickers for data files"));
     }
 
     /// Export all comments / form data: the format follows the file name's extension.
@@ -403,15 +408,15 @@ impl PdfCraftApp {
             let path = match self.save_override.clone() {
                 Some(p) => Some(std::path::PathBuf::from(p)),
                 None => rfd::FileDialog::new()
-                    .set_title("Export")
+                    .set_title(tr("Export"))
                     .add_filter(ext.to_uppercase(), &[ext])
                     .set_file_name(format!("{stem}.{ext}"))
                     .save_file(),
             };
             let Some(path) = path else { return };
             match crate::editing::write_atomically(&path.to_string_lossy(), &bytes) {
-                Ok(()) => self.notify(format!("Exported to {}", path.display())),
-                Err(e) => self.notify(format!("Couldn't write {}: {e}", path.display())),
+                Ok(()) => self.notify(trf("Exported to {}", &[&path.display()])),
+                Err(e) => self.notify(trf("Couldn't write {}: {}", &[&path.display(), &e])),
             }
         }
         #[cfg(target_arch = "wasm32")]
@@ -426,8 +431,8 @@ impl PdfCraftApp {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let paths = rfd::FileDialog::new()
-                .set_title("Select data files to merge")
-                .add_filter("Form data and PDF forms", &["fdf", "xfdf", "pdf"])
+                .set_title(tr("Select data files to merge"))
+                .add_filter(tr("Form data and PDF forms"), &["fdf", "xfdf", "pdf"])
                 .pick_files()
                 .unwrap_or_default();
             let mut files = Vec::new();
@@ -435,7 +440,7 @@ impl PdfCraftApp {
                 let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 match std::fs::read(&p) {
                     Ok(b) => files.push((name, b)),
-                    Err(e) => return self.notify(format!("Couldn't read {name}: {e}")),
+                    Err(e) => return self.notify(trf("Couldn't read {}: {}", &[&name, &e])),
                 }
             }
             if !files.is_empty() {
@@ -443,7 +448,7 @@ impl PdfCraftApp {
             }
         }
         #[cfg(target_arch = "wasm32")]
-        self.notify("Merging data files needs the desktop app");
+        self.notify(tr("Merging data files needs the desktop app"));
     }
 
     /// Merge the given data files and save the spreadsheet (asks where; `save_override` in tests).
@@ -456,12 +461,17 @@ impl PdfCraftApp {
         {
             let path = match self.save_override.clone() {
                 Some(p) => Some(std::path::PathBuf::from(p)),
-                None => rfd::FileDialog::new().set_title("Save the spreadsheet").add_filter("CSV", &["csv"]).set_file_name("report.csv").save_file(),
+                None => {
+                    rfd::FileDialog::new().set_title(tr("Save the spreadsheet")).add_filter("CSV", &["csv"]).set_file_name("report.csv").save_file()
+                }
             };
             let Some(path) = path else { return };
             match crate::editing::write_atomically(&path.to_string_lossy(), csv.as_bytes()) {
-                Ok(()) => self.notify(format!("Merged {} file{} into {}", files.len(), if files.len() == 1 { "" } else { "s" }, path.display())),
-                Err(e) => self.notify(format!("Couldn't write {}: {e}", path.display())),
+                Ok(()) => {
+                    let (n, path) = (files.len(), path.display());
+                    self.notify(if n == 1 { trf("Merged {} file into {}", &[&n, &path]) } else { trf("Merged {} files into {}", &[&n, &path]) });
+                }
+                Err(e) => self.notify(trf("Couldn't write {}: {}", &[&path.display(), &e])),
             }
         }
         #[cfg(target_arch = "wasm32")]
@@ -478,7 +488,7 @@ impl PdfCraftApp {
                 Some(p) => Some(std::path::PathBuf::from(p)),
                 None => {
                     let d = rfd::FileDialog::new()
-                        .set_title(if comments { "Export comments" } else { "Export form data" })
+                        .set_title(if comments { tr("Export comments") } else { tr("Export form data") })
                         .set_file_name(format!("{stem}.xfdf"));
                     let d = if comments {
                         d.add_filter("XFDF", &["xfdf"]).add_filter("FDF", &["fdf"])
@@ -487,7 +497,7 @@ impl PdfCraftApp {
                             .add_filter("FDF", &["fdf"])
                             .add_filter("XML", &["xml"])
                             .add_filter("CSV", &["csv"])
-                            .add_filter("Text", &["txt"])
+                            .add_filter(tr("Text"), &["txt"])
                     };
                     d.save_file()
                 }
@@ -497,8 +507,8 @@ impl PdfCraftApp {
             let format = pdfcraft_engine::DataFormat::from_extension(&ext).unwrap_or(pdfcraft_engine::DataFormat::Xfdf);
             match self.session.export_data(id, format, comments, fields) {
                 Ok(bytes) => match crate::editing::write_atomically(&path.to_string_lossy(), &bytes) {
-                    Ok(()) => self.notify(format!("Exported to {}", path.display())),
-                    Err(e) => self.notify(format!("Couldn't write {}: {e}", path.display())),
+                    Ok(()) => self.notify(trf("Exported to {}", &[&path.display()])),
+                    Err(e) => self.notify(trf("Couldn't write {}: {}", &[&path.display(), &e])),
                 },
                 Err(e) => self.notify(e.to_string()),
             }

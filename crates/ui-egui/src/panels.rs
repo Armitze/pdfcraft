@@ -5,6 +5,7 @@ use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, po
 use pdfcraft_engine::catalog::{self, Availability, TOOL_GROUPS, ToolGroup};
 use pdfcraft_render::{DocInfo, FieldKind, OutlineItem};
 
+use crate::i18n::{tr, trf};
 use crate::theme::{self, Tokens};
 use crate::{LeftPanel, PdfCraftApp, RightPanel, icons, widgets};
 
@@ -38,12 +39,12 @@ fn panel_header(ui: &mut egui::Ui, t: &Tokens, title: &str, back: bool) -> (bool
     let mut go_back = false;
     let mut close = false;
     ui.horizontal(|ui| {
-        if back && icons::button(ui, "chevron-left", 26.0, false, "Back to all tools").clicked() {
+        if back && icons::button(ui, "chevron-left", 26.0, false, tr("Back to all tools")).clicked() {
             go_back = true;
         }
-        ui.label(egui::RichText::new(title).font(theme::semibold(15.5)).color(t.text));
+        ui.label(egui::RichText::new(tr(title)).font(theme::semibold(15.5)).color(t.text));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if icons::button(ui, "x", 26.0, false, "Close panel").clicked() {
+            if icons::button(ui, "x", 26.0, false, tr("Close panel")).clicked() {
                 close = true;
             }
         });
@@ -65,7 +66,7 @@ fn all_tools(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
             }
         }
         ui.add_space(4.0);
-        let more = if app.all_tools_expanded { "View less" } else { "View more" };
+        let more = if app.all_tools_expanded { tr("View less") } else { tr("View more") };
         if ui.add(egui::Label::new(egui::RichText::new(more).color(t.accent_text).font(theme::medium(13.0))).sense(Sense::click())).clicked() {
             app.all_tools_expanded = !app.all_tools_expanded;
         }
@@ -74,14 +75,15 @@ fn all_tools(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
 
 fn tool_row(ui: &mut egui::Ui, t: &Tokens, g: &ToolGroup) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, g.label));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr(g.label)));
     if resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
     }
     icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 7.0), vec2(20.0, 20.0)), g.icon, 19.0, hue(g));
-    ui.painter().text(rect.left_center() + vec2(36.0, 0.0), Align2::LEFT_CENTER, g.label, theme::regular(13.5), t.text);
+    ui.painter().text(rect.left_center() + vec2(36.0, 0.0), Align2::LEFT_CENTER, tr(g.label), theme::regular(13.5), t.text);
     match (g.badge, g.availability) {
         (Some(b), _) => {
+            let b = tr(b);
             let font = theme::semibold(9.5);
             let w = ui.fonts_mut(|f| f.layout_no_wrap(b.to_string(), font.clone(), Color32::WHITE).size().x);
             let r = Rect::from_center_size(rect.right_center() - vec2(w / 2.0 + 10.0, 0.0), vec2(w + 10.0, 16.0));
@@ -93,7 +95,7 @@ fn tool_row(ui: &mut egui::Ui, t: &Tokens, g: &ToolGroup) -> egui::Response {
             ui.painter().text(
                 rect.right_center() - vec2(10.0, 0.0),
                 Align2::RIGHT_CENTER,
-                format!("Planned · {m}"),
+                trf("Planned · {}", &[&m]),
                 theme::medium(10.5),
                 t.text_faint,
             );
@@ -101,9 +103,9 @@ fn tool_row(ui: &mut egui::Ui, t: &Tokens, g: &ToolGroup) -> egui::Response {
         _ => {}
     }
     let tip = match g.availability {
-        Availability::Ready => "Available".to_string(),
-        Availability::Planned(m) => format!("Planned for milestone {m} — open to see what it will include"),
-        Availability::Provider => "Optional: needs an AI provider you configure".into(),
+        Availability::Ready => tr("Available").to_string(),
+        Availability::Planned(m) => trf("Planned for milestone {} — open to see what it will include", &[&m]),
+        Availability::Provider => tr("Optional: needs an AI provider you configure").into(),
     };
     resp.on_hover_text(tip)
 }
@@ -121,7 +123,7 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
         egui::Frame::NONE.fill(t.accent_soft).corner_radius(CornerRadius::same(8)).inner_margin(egui::Margin::same(10)).show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.label(
-                egui::RichText::new(format!("Coming in milestone {m}. Items marked Ready work today.")).color(t.text).font(theme::regular(12.0)),
+                egui::RichText::new(trf("Coming in milestone {}. Items marked Ready work today.", &[&m])).color(t.text).font(theme::regular(12.0)),
             );
         });
     }
@@ -133,8 +135,8 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
     // Prepare a form: Preview fills the form as a reader would; Edit goes back.
     if g.id == "form" {
         ui.horizontal(|ui| {
-            let label = if app.form_preview { "Edit fields" } else { "Preview" };
-            if widgets::pill_button(ui, label, app.form_preview).on_hover_text("Try the form as people filling it in will see it").clicked() {
+            let label = if app.form_preview { tr("Edit fields") } else { tr("Preview") };
+            if widgets::pill_button(ui, label, app.form_preview).on_hover_text(tr("Try the form as people filling it in will see it")).clicked() {
                 app.form_preview = !app.form_preview;
                 if app.form_preview {
                     app.quick_tool = crate::QuickTool::Select;
@@ -154,10 +156,10 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
     let list_h = if footer { (ui.available_height() - 52.0).max(80.0) } else { ui.available_height() };
     egui::ScrollArea::vertical().auto_shrink([false, false]).max_height(list_h).show(ui, |ui| {
         for s in g.sections {
-            widgets::section_title(ui, s.title);
+            widgets::section_title(ui, tr(s.title));
             for item in s.items {
                 let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, item.label));
+                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr(item.label)));
                 let ready = item.availability == Availability::Ready;
                 if resp.hovered() {
                     ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
@@ -170,9 +172,9 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
                     17.0,
                     if ready { hue(g) } else { t.text_faint },
                 );
-                ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, item.label, theme::regular(13.0), fg);
+                ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, tr(item.label), theme::regular(13.0), fg);
                 let (chip, fill, cfg) = match item.availability {
-                    Availability::Ready => ("Ready", Color32::from_rgb(0xDD, 0xF3, 0xE4), Color32::from_rgb(0x1E, 0x7B, 0x43)),
+                    Availability::Ready => (tr("Ready"), Color32::from_rgb(0xDD, 0xF3, 0xE4), Color32::from_rgb(0x1E, 0x7B, 0x43)),
                     Availability::Planned(m) => (m, t.pressed, t.text_muted),
                     Availability::Provider => ("AI", t.pressed, t.text_muted),
                 };
@@ -191,13 +193,14 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             if marks > 0 {
-                ui.label(egui::RichText::new(format!("{marks} mark{}", if marks == 1 { "" } else { "s" })).color(t.text_muted));
+                let text = if marks == 1 { trf("{} mark", &[&marks]) } else { trf("{} marks", &[&marks]) };
+                ui.label(egui::RichText::new(text).color(t.text_muted));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.add_enabled_ui(marks > 0, |ui| widgets::pill_button(ui, "Redact all", true)).inner.clicked() {
+                if ui.add_enabled_ui(marks > 0, |ui| widgets::pill_button(ui, tr("Redact all"), true)).inner.clicked() {
                     run = Some("redact.apply");
                 }
-                if ui.add_enabled_ui(marks > 0, |ui| widgets::pill_button(ui, "Clear all", false)).inner.clicked() {
+                if ui.add_enabled_ui(marks > 0, |ui| widgets::pill_button(ui, tr("Clear all"), false)).inner.clicked() {
                     run = Some("redact.clear");
                 }
             });
@@ -212,12 +215,12 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
 /// page to place it.
 fn stamp_palette(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     use pdfcraft_engine::{StampGroup, StampKind};
-    ui.label(egui::RichText::new("Choose a stamp, then click on the page to place it.").small().color(t.text_faint));
+    ui.label(egui::RichText::new(tr("Choose a stamp, then click on the page to place it.")).small().color(t.text_faint));
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         for (group, title) in
             [(StampGroup::Dynamic, "Dynamic"), (StampGroup::SignHere, "Sign Here"), (StampGroup::StandardBusiness, "Standard Business")]
         {
-            widgets::section_title(ui, title);
+            widgets::section_title(ui, tr(title));
             for kind in StampKind::ALL.into_iter().filter(|k| k.group() == group) {
                 let active = app.quick_tool == crate::QuickTool::Stamp(kind);
                 let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 38.0), Sense::click());
@@ -255,7 +258,7 @@ fn stamp_palette(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
                         ui.painter().text(
                             egui::pos2(chip.center().x, chip.bottom() - 6.0),
                             Align2::CENTER_CENTER,
-                            "By name at time, date",
+                            tr("By name at time, date"),
                             theme::regular(7.5),
                             col,
                         );
@@ -407,12 +410,12 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     RightPanel::Compare => ("Compare", compare.as_ref().filter(|c| c.new == id).map(|c| c.result.changes.len())),
                 };
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(title).font(theme::semibold(15.5)));
+                    ui.label(egui::RichText::new(tr(title)).font(theme::semibold(15.5)));
                     if let Some(c) = count {
                         ui.label(egui::RichText::new(c.to_string()).font(theme::medium(13.0)).color(t.text_faint));
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if icons::button(ui, "x", 26.0, false, "Close").clicked() {
+                        if icons::button(ui, "x", 26.0, false, tr("Close")).clicked() {
                             close = true;
                         }
                         // Right to left: close, "…", filter, search (Acrobat's order left to right).
@@ -420,7 +423,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             panel_command = crate::comments_panel::header_controls(ui, info, view, doc.comments_hidden());
                         }
                         if panel == RightPanel::Comments
-                            && icons::button(ui, "search", 26.0, view.comments.search.is_some(), "Search comments").clicked()
+                            && icons::button(ui, "search", 26.0, view.comments.search.is_some(), tr("Search comments")).clicked()
                         {
                             view.comments.search = match view.comments.search {
                                 Some(_) => None,
@@ -429,13 +432,13 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             view.comments.search_focus = true;
                         }
                         if panel == RightPanel::Bookmarks && !info.outline.is_empty() {
-                            let more = icons::button(ui, "ellipsis", 26.0, false, "Bookmark options");
+                            let more = icons::button(ui, "ellipsis", 26.0, false, tr("Bookmark options"));
                             egui::Popup::menu(&more).show(|ui| {
                                 ui.set_min_width(200.0);
                                 for (levels, label) in
                                     [(usize::MAX, "Expand all bookmarks"), (1, "Expand top-level bookmarks"), (0, "Collapse all bookmarks")]
                                 {
-                                    if ui.button(label).clicked() {
+                                    if ui.button(tr(label)).clicked() {
                                         bm_expand = Some(levels);
                                         ui.close();
                                     }
@@ -444,7 +447,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         }
                         if panel == RightPanel::Bookmarks
                             && bm_editable
-                            && icons::button(ui, "bookmark-plus", 26.0, false, "New bookmark (⌘B)").clicked()
+                            && icons::button(ui, "bookmark-plus", 26.0, false, tr("New bookmark (⌘B)")).clicked()
                         {
                             bm_action = Some(BmAction::New);
                         }
@@ -459,7 +462,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     }
                     RightPanel::Bookmarks => {
                         if info.outline.is_empty() {
-                            empty(ui, &t, "bookmark", "This document has no bookmarks.");
+                            empty(ui, &t, "bookmark", tr("This document has no bookmarks."));
                         }
                         let mut ctx = OutlineCtx {
                             nav: &mut nav,
@@ -477,7 +480,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     RightPanel::Fields => fields(ui, &t, info, &doc.form, preparing, &mut nav, &mut panel_edit),
                     RightPanel::Layers => {
                         if info.layers.is_empty() {
-                            empty(ui, &t, "layers", "This document has no layers.");
+                            empty(ui, &t, "layers", tr("This document has no layers."));
                         }
                         for (li, l) in info.layers.iter().enumerate() {
                             let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
@@ -494,7 +497,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             );
                             let fg = if l.visible { t.text } else { t.text_faint };
                             ui.painter().text(rect.left_center() + vec2(32.0, 0.0), Align2::LEFT_CENTER, &l.name, theme::regular(13.0), fg);
-                            if resp.on_hover_text(if l.visible { "Hide layer" } else { "Show layer" }).clicked() {
+                            if resp.on_hover_text(if l.visible { tr("Hide layer") } else { tr("Show layer") }).clicked() {
                                 toggle_layer = Some((li, !l.visible));
                             }
                         }
@@ -509,7 +512,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     RightPanel::Compare => compare_action = crate::compare_ui::panel(ui, &t, compare, id),
                     RightPanel::Attachments => {
                         if info.attachments.is_empty() {
-                            empty(ui, &t, "paperclip", "This document has no attachments.");
+                            empty(ui, &t, "paperclip", tr("This document has no attachments."));
                         }
                         for (ai, a) in info.attachments.iter().enumerate() {
                             egui::Frame::NONE.inner_margin(egui::Margin::symmetric(4, 6)).show(ui, |ui| {
@@ -520,7 +523,8 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                                         ui.add(egui::Label::new(egui::RichText::new(&a.name).font(theme::medium(13.0))).truncate());
                                         let mut meta = a.size.map(human_size).unwrap_or_default();
                                         if let pdfcraft_render::AttachmentSource::Annotation { page, .. } = a.source {
-                                            meta = format!("{meta}  ·  on page {}", info.pages.get(page).map(|p| p.label.as_str()).unwrap_or("?"));
+                                            let on_page = trf("on page {}", &[&info.pages.get(page).map(|p| p.label.as_str()).unwrap_or("?")]);
+                                            meta = format!("{meta}  ·  {on_page}");
                                         }
                                         if let Some(d) = &a.description {
                                             meta = format!("{meta}  ·  {d}");
@@ -528,11 +532,11 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                                         ui.add(egui::Label::new(egui::RichText::new(meta).color(t.text_faint).small()).truncate());
                                     });
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                        if icons::button(ui, "file-down", 28.0, false, "Save attachment…").clicked() {
+                                        if icons::button(ui, "file-down", 28.0, false, tr("Save attachment…")).clicked() {
                                             attachment_action = Some((ai, false));
                                         }
                                         if a.name.to_lowercase().ends_with(".pdf")
-                                            && icons::button(ui, "file-input", 28.0, false, "Open in a new tab").clicked()
+                                            && icons::button(ui, "file-input", 28.0, false, tr("Open in a new tab")).clicked()
                                         {
                                             attachment_action = Some((ai, true));
                                         }
@@ -574,7 +578,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         }
         Some(crate::sign_ui::PanelAction::ExportCertificate(c)) => {
             let pem = crate::sign_ui::certificate_pem(&c);
-            app.write_files(&[(format!("{}.cer", c.display_name()), std::sync::Arc::new(pem.into_bytes()))], "Export certificate");
+            app.write_files(&[(format!("{}.cer", c.display_name()), std::sync::Arc::new(pem.into_bytes()))], tr("Export certificate"));
         }
         None => {}
     }
@@ -723,15 +727,15 @@ fn outline_item(ui: &mut egui::Ui, t: &Tokens, info: &DocInfo, item: &OutlineIte
                         ui.close();
                     }
                 };
-                pick(ui, "Rename", true, BmAction::StartRename(path.to_vec()));
-                pick(ui, &format!("Set to current page ({})", current + 1), true, BmAction::SetToCurrentPage(path.to_vec()));
+                pick(ui, tr("Rename"), true, BmAction::StartRename(path.to_vec()));
+                pick(ui, &trf("Set to current page ({})", &[&(current + 1)]), true, BmAction::SetToCurrentPage(path.to_vec()));
                 ui.separator();
-                pick(ui, "Move up", i > 0, BmAction::MoveUp(path.to_vec()));
-                pick(ui, "Move down", i + 1 < siblings, BmAction::MoveDown(path.to_vec()));
-                pick(ui, "Indent", i > 0, BmAction::Indent(path.to_vec()));
-                pick(ui, "Outdent", depth > 0, BmAction::Outdent(path.to_vec()));
+                pick(ui, tr("Move up"), i > 0, BmAction::MoveUp(path.to_vec()));
+                pick(ui, tr("Move down"), i + 1 < siblings, BmAction::MoveDown(path.to_vec()));
+                pick(ui, tr("Indent"), i > 0, BmAction::Indent(path.to_vec()));
+                pick(ui, tr("Outdent"), depth > 0, BmAction::Outdent(path.to_vec()));
                 ui.separator();
-                pick(ui, "Delete", true, BmAction::Delete(path.to_vec()));
+                pick(ui, tr("Delete"), true, BmAction::Delete(path.to_vec()));
             });
         }
     }
@@ -750,7 +754,7 @@ fn pages(ui: &mut egui::Ui, t: &Tokens, info: &DocInfo, view: &crate::DocView, n
         ui.vertical_centered(|ui| {
             let h = w * p.height / p.width.max(1.0);
             let (rect, resp) = ui.allocate_exact_size(vec2(w + 16.0, h + 16.0), Sense::click());
-            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("Page {}", p.label)));
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, trf("Page {}", &[&p.label])));
             let selected = i == view.current;
             if selected {
                 ui.painter().rect_filled(rect, CornerRadius::same(8), t.accent_soft);
@@ -789,20 +793,20 @@ fn fields(
     edit: &mut Option<pdfcraft_engine::Edit>,
 ) {
     if info.fields.is_empty() {
-        empty(ui, t, "text-cursor-input", "This document has no form fields.");
+        empty(ui, t, "text-cursor-input", tr("This document has no form fields."));
         return;
     }
     let rank = |name: &str| form.iter().find(|f| f.name == name).and_then(|f| f.widgets.iter().map(|w| w.tab).min()).unwrap_or(usize::MAX);
     let mut ordered: Vec<_> = info.fields.iter().collect();
     ordered.sort_by_key(|f| (f.page, rank(&f.name)));
     if preparing {
-        ui.label(egui::RichText::new("Tab order: move a field with its arrows.").small().color(t.text_muted));
+        ui.label(egui::RichText::new(tr("Tab order: move a field with its arrows.")).small().color(t.text_muted));
     }
     let mut pages: Vec<Option<usize>> = info.fields.iter().map(|f| f.page).collect();
     pages.sort();
     pages.dedup();
     for p in pages {
-        let label = p.map(|p| format!("Page {}", info.pages[p].label)).unwrap_or_else(|| "Unplaced".into());
+        let label = p.map(|p| trf("Page {}", &[&info.pages[p].label])).unwrap_or_else(|| tr("Unplaced").into());
         ui.add_space(4.0);
         ui.label(egui::RichText::new(label).font(theme::semibold(12.5)).color(t.text_muted));
         for f in ordered.iter().copied().filter(|f| f.page == p) {
@@ -827,18 +831,30 @@ fn fields(
                 let v: String = if v.chars().count() > 18 { format!("{}…", v.chars().take(17).collect::<String>()) } else { v.clone() };
                 ui.painter().text(rect.right_center() - vec2(8.0, 0.0), Align2::RIGHT_CENTER, v, theme::regular(11.5), t.text_faint);
             }
-            let mut tip = format!("{:?} field", f.kind);
+            let kind = match f.kind {
+                FieldKind::Text => "Text field",
+                FieldKind::CheckBox => "CheckBox field",
+                FieldKind::Radio => "Radio field",
+                FieldKind::PushButton => "PushButton field",
+                FieldKind::Combo => "Combo field",
+                FieldKind::List => "List field",
+                FieldKind::Signature => "Signature field",
+                FieldKind::Unknown => "Unknown field",
+            };
+            let mut tip = tr(kind).to_string();
             if let Some(tt) = &f.tooltip {
                 tip.push_str(&format!(" — {tt}"));
             }
             if f.has_actions {
-                tip.push_str("\nHas JavaScript actions (run in M6)");
+                tip.push('\n');
+                tip.push_str(tr("Has JavaScript actions"));
             }
             if preparing && f.page.is_some() {
                 let up = Rect::from_center_size(rect.right_center() - vec2(44.0, 0.0), vec2(22.0, 22.0));
                 let down = Rect::from_center_size(rect.right_center() - vec2(20.0, 0.0), vec2(22.0, 22.0));
                 for (r, icon, earlier, tip) in [(up, "chevron-up", true, "Earlier in tab order"), (down, "chevron-down", false, "Later in tab order")]
                 {
+                    let tip = tr(tip);
                     let b = ui.interact(r, ui.id().with((&f.name, earlier)), Sense::click());
                     b.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("{tip}: {}", f.name)));
                     if b.hovered() {

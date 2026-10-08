@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use pdfcraft_ui_egui::i18n::{tr, trf};
 use pdfcraft_ui_egui::updates::{RELEASES_PAGE, Release};
 
 const LATEST: &str = "https://api.github.com/repos/storytold/pdfcraft/releases/latest";
@@ -19,8 +20,8 @@ pub fn latest_release() -> Result<Release, String> {
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", concat!("PdfCraft/", env!("CARGO_PKG_VERSION")))
         .call()
-        .map_err(|e| format!("couldn't reach GitHub ({e})"))?;
-    let body = response.body_mut().with_config().limit(1 << 20).read_to_string().map_err(|e| format!("unreadable answer ({e})"))?;
+        .map_err(|e| trf("couldn't reach GitHub ({})", &[&e]))?;
+    let body = response.body_mut().with_config().limit(1 << 20).read_to_string().map_err(|e| trf("unreadable answer ({})", &[&e]))?;
     parse(&body)
 }
 
@@ -29,14 +30,14 @@ fn os_roots() -> Result<ureq::tls::RootCerts, String> {
     let found = rustls_native_certs::load_native_certs();
     let certs: Vec<ureq::tls::Certificate<'static>> = found.certs.iter().map(|c| ureq::tls::Certificate::from_der(c.as_ref()).to_owned()).collect();
     if certs.is_empty() {
-        return Err("no trusted certificates found on this system".into());
+        return Err(tr("no trusted certificates found on this system").into());
     }
     Ok(ureq::tls::RootCerts::new_with_certs(&certs))
 }
 
 fn parse(body: &str) -> Result<Release, String> {
-    let v: serde_json::Value = serde_json::from_str(body).map_err(|e| format!("unreadable answer ({e})"))?;
-    let version = v["tag_name"].as_str().filter(|t| !t.is_empty() && t.len() <= 64).ok_or("no release found")?.to_string();
+    let v: serde_json::Value = serde_json::from_str(body).map_err(|e| trf("unreadable answer ({})", &[&e]))?;
+    let version = v["tag_name"].as_str().filter(|t| !t.is_empty() && t.len() <= 64).ok_or_else(|| tr("no release found").to_string())?.to_string();
     let url = v["html_url"]
         .as_str()
         .filter(|u| u.strip_prefix(RELEASES_PAGE).is_some_and(|rest| rest.starts_with('/') && !rest.contains(['?', '#', '\\'])))

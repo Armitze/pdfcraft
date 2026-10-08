@@ -3,6 +3,7 @@
 use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, vec2};
 
 use crate::canvas::{Fit, PageLayout};
+use crate::i18n::{tr, trf};
 use crate::theme::{self, ThemeKind, Tokens};
 use crate::{Dialog, Mode, PdfCraftApp, PropsTab, RightPanel, icons, widgets};
 
@@ -24,7 +25,7 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             }
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
-                if icons::button(ui, "house", 28.0, app.active.is_none(), "Home").clicked() {
+                if icons::button(ui, "house", 28.0, app.active.is_none(), tr("Home")).clicked() {
                     app.active = None;
                 }
                 let mut close = None;
@@ -39,19 +40,19 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.request_close_tab(i);
                 }
                 ui.add_space(4.0);
-                if widgets::ghost_button(ui, "plus", "Open").on_hover_text("Open a PDF (⌘O)").clicked() {
+                if widgets::ghost_button(ui, "plus", tr("Open")).on_hover_text(tr("Open a PDF (⌘O)")).clicked() {
                     app.open_dialog();
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let (icon, next, tip) = match app.theme {
-                        ThemeKind::Light => ("moon", ThemeKind::Dark, "Dark gray theme"),
-                        ThemeKind::Dark => ("sun", ThemeKind::Light, "Light theme"),
+                        ThemeKind::Light => ("moon", ThemeKind::Dark, tr("Dark gray theme")),
+                        ThemeKind::Dark => ("sun", ThemeKind::Light, tr("Light theme")),
                     };
                     if icons::button(ui, icon, 28.0, false, tip).clicked() {
                         let ctx = ui.ctx().clone();
                         app.set_theme(&ctx, next);
                     }
-                    if icons::button(ui, "circle-help", 28.0, false, "Keyboard shortcuts").clicked() {
+                    if icons::button(ui, "circle-help", 28.0, false, tr("Keyboard shortcuts")).clicked() {
                         app.dialog = Some(Dialog::Shortcuts);
                     }
                     // One click to the community, from anywhere in the app.
@@ -68,7 +69,7 @@ fn tab(ui: &mut egui::Ui, t: &Tokens, name: &str, dirty: bool, active: bool, clo
     let label: String = if name.chars().count() > 28 { format!("{}…", name.chars().take(27).collect::<String>()) } else { name.to_string() };
     let text_w = ui.fonts_mut(|f| f.layout_no_wrap(label.clone(), font.clone(), t.text).size().x);
     let (rect, resp) = ui.allocate_exact_size(vec2(text_w + 64.0, 30.0), Sense::click());
-    let a11y = if dirty { format!("{name} (edited)") } else { name.to_string() };
+    let a11y = if dirty { trf("{} (edited)", &[&name]) } else { name.to_string() };
     resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, active, &a11y));
     let bg = if active {
         t.chrome
@@ -100,7 +101,7 @@ fn tab(ui: &mut egui::Ui, t: &Tokens, name: &str, dirty: bool, active: bool, clo
     if x.clicked() {
         *close = Some(index);
     }
-    resp.on_hover_text(if dirty { format!("{name} — unsaved changes") } else { name.to_string() })
+    resp.on_hover_text(if dirty { trf("{} — unsaved changes", &[&name]) } else { name.to_string() })
 }
 
 pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
@@ -118,7 +119,7 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 for (mode, label) in
                     [(Mode::AllTools, "All tools"), (Mode::Read, "Read"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")]
                 {
-                    if widgets::mode_tab(ui, label, app.mode == mode).clicked() {
+                    if widgets::mode_tab(ui, tr(label), app.mode == mode).clicked() {
                         app.mode = mode;
                         app.left_open = true;
                         app.left = match mode {
@@ -133,18 +134,18 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     ui.spacing_mut().item_spacing.x = 4.0;
                     let has_doc = app.active.is_some();
                     ui.add_enabled_ui(has_doc, |ui| {
-                        if icons::button(ui, "printer", 32.0, false, "Print (⌘P)").clicked() {
+                        if icons::button(ui, "printer", 32.0, false, tr("Print (⌘P)")).clicked() {
                             app.run_command("print.dialog");
                         }
-                        if icons::button(ui, "save", 32.0, false, "Save (M4)").clicked() {
+                        if icons::button(ui, "save", 32.0, false, tr("Save (⌘S)")).clicked() {
                             app.run_command("file.save");
                         }
-                        if icons::button(ui, "info", 32.0, false, "Document properties (⌘D)").clicked() {
+                        if icons::button(ui, "info", 32.0, false, tr("Document properties (⌘D)")).clicked() {
                             app.dialog = Some(Dialog::Properties(PropsTab::Description));
                         }
                     });
                     ui.add_space(8.0);
-                    if widgets::search_box(ui, "Find tools and commands", 260.0).clicked() {
+                    if widgets::search_box(ui, tr("Find tools and commands"), 260.0).clicked() {
                         app.palette_open = true;
                     }
                 });
@@ -164,7 +165,7 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         ui.menu_button(language.tr("View"), |ui| {
             if let Some(i) = app.active {
                 let v = &mut app.views[i];
-                ui.label(egui::RichText::new("Zoom").color(t.text_faint).small());
+                ui.label(egui::RichText::new(tr("Zoom")).color(t.text_faint).small());
                 if widgets::menu_item(ui, language.tr("Actual size"), "⌘1").clicked() {
                     v.set_zoom(1.0);
                 }
@@ -174,46 +175,47 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 if widgets::menu_item(ui, language.tr("Fit to width"), "⌘2").clicked() {
                     v.fit = Fit::Width;
                 }
-                if widgets::menu_item(ui, "Fit to height", "").clicked() {
+                if widgets::menu_item(ui, tr("Fit to height"), "").clicked() {
                     v.fit = Fit::Height;
                     v.goto = Some((v.current, 0.0));
                 }
-                if widgets::menu_item(ui, "Fit visible", "⌘3").clicked() {
+                if widgets::menu_item(ui, tr("Fit visible"), "⌘3").clicked() {
                     ui.close();
                     app.execute("view.fit_visible");
                     return;
                 }
-                if widgets::menu_item(ui, "Zoom in", "⌘+").clicked() {
+                if widgets::menu_item(ui, tr("Zoom in"), "⌘+").clicked() {
                     v.zoom_step(true);
                 }
-                if widgets::menu_item(ui, "Zoom out", "⌘−").clicked() {
+                if widgets::menu_item(ui, tr("Zoom out"), "⌘−").clicked() {
                     v.zoom_step(false);
                 }
-                if widgets::menu_item(ui, "Rotate view clockwise", "⇧⌘+").clicked() {
+                if widgets::menu_item(ui, tr("Rotate view clockwise"), "⇧⌘+").clicked() {
                     v.rotate_view(true);
                 }
-                if widgets::menu_item(ui, "Rotate view counterclockwise", "⇧⌘−").clicked() {
+                if widgets::menu_item(ui, tr("Rotate view counterclockwise"), "⇧⌘−").clicked() {
                     v.rotate_view(false);
                 }
                 ui.separator();
-                ui.label(egui::RichText::new("Page navigation").color(t.text_faint).small());
-                if ui.add_enabled(!v.back.is_empty(), egui::Button::new("Previous view").shortcut_text("⌘[")).clicked() {
+                ui.label(egui::RichText::new(tr("Page navigation")).color(t.text_faint).small());
+                if ui.add_enabled(!v.back.is_empty(), egui::Button::new(tr("Previous view")).shortcut_text("⌘[")).clicked() {
                     v.view_history(false);
                 }
-                if ui.add_enabled(!v.forward.is_empty(), egui::Button::new("Next view").shortcut_text("⌘]")).clicked() {
+                if ui.add_enabled(!v.forward.is_empty(), egui::Button::new(tr("Next view")).shortcut_text("⌘]")).clicked() {
                     v.view_history(true);
                 }
                 ui.separator();
-                ui.label(egui::RichText::new("Page display").color(t.text_faint).small());
+                ui.label(egui::RichText::new(tr("Page display")).color(t.text_faint).small());
                 for (l, label) in
                     [(PageLayout::Continuous, "Continuous scrolling"), (PageLayout::TwoUp, "Two-page view"), (PageLayout::Single, "Single page")]
                 {
-                    if ui.radio(v.layout == l, label).clicked() {
+                    if ui.radio(v.layout == l, tr(label)).clicked() {
                         v.layout = l;
                         v.goto = Some((v.current, 0.0));
                     }
                 }
-                if ui.add_enabled(v.layout == PageLayout::TwoUp, egui::Checkbox::new(&mut v.cover, "Show cover page in two-page view")).changed() {
+                if ui.add_enabled(v.layout == PageLayout::TwoUp, egui::Checkbox::new(&mut v.cover, tr("Show cover page in two-page view"))).changed()
+                {
                     v.goto = Some((v.current, 0.0));
                 }
                 ui.separator();
@@ -221,14 +223,14 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             crate::commands::registry_menu(app, ui, "View");
             ui.menu_button(language.tr("Display theme"), |ui| {
                 let ctx = ui.ctx().clone();
-                if ui.radio(app.follow_system_theme, "Use system setting").clicked() {
+                if ui.radio(app.follow_system_theme, tr("Use system setting")).clicked() {
                     app.follow_system_theme = true;
                 }
-                if ui.radio(!app.follow_system_theme && app.theme == ThemeKind::Light, "Light gray").clicked() {
+                if ui.radio(!app.follow_system_theme && app.theme == ThemeKind::Light, tr("Light gray")).clicked() {
                     app.follow_system_theme = false;
                     app.set_theme(&ctx, ThemeKind::Light);
                 }
-                if ui.radio(!app.follow_system_theme && app.theme == ThemeKind::Dark, "Dark gray").clicked() {
+                if ui.radio(!app.follow_system_theme && app.theme == ThemeKind::Dark, tr("Dark gray")).clicked() {
                     app.follow_system_theme = false;
                     app.set_theme(&ctx, ThemeKind::Dark);
                 }
@@ -246,7 +248,7 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     (RightPanel::Search, "Search"),
                     (RightPanel::Compare, "Compare"),
                 ] {
-                    if ui.radio(app.right == Some(p), label).clicked() {
+                    if ui.radio(app.right == Some(p), tr(label)).clicked() {
                         app.right = Some(p);
                     }
                 }
@@ -288,41 +290,41 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.right = if selected { None } else { Some(panel) };
                 }
             };
-            rail_button(ui, RightPanel::Comments, "message-square-text", "Comments", has_comments);
-            rail_button(ui, RightPanel::Bookmarks, "bookmark", "Bookmarks", has_outline);
-            rail_button(ui, RightPanel::Pages, "files", "Page thumbnails", false);
-            rail_button(ui, RightPanel::Fields, "text-cursor-input", "Form fields", has_fields);
-            rail_button(ui, RightPanel::Layers, "layers", "Layers", has_layers);
-            rail_button(ui, RightPanel::Attachments, "paperclip", "Attachments", has_files);
-            rail_button(ui, RightPanel::Signatures, "signature", "Signatures", has_signatures);
+            rail_button(ui, RightPanel::Comments, "message-square-text", tr("Comments"), has_comments);
+            rail_button(ui, RightPanel::Bookmarks, "bookmark", tr("Bookmarks"), has_outline);
+            rail_button(ui, RightPanel::Pages, "files", tr("Page thumbnails"), false);
+            rail_button(ui, RightPanel::Fields, "text-cursor-input", tr("Form fields"), has_fields);
+            rail_button(ui, RightPanel::Layers, "layers", tr("Layers"), has_layers);
+            rail_button(ui, RightPanel::Attachments, "paperclip", tr("Attachments"), has_files);
+            rail_button(ui, RightPanel::Signatures, "signature", tr("Signatures"), has_signatures);
             if has_check {
-                rail_button(ui, RightPanel::Accessibility, "accessibility", "Accessibility Checker", false);
+                rail_button(ui, RightPanel::Accessibility, "accessibility", tr("Accessibility Checker"), false);
             }
 
             // Page navigation cluster at the bottom (as in Acrobat's rail).
             let view = &mut app.views[index];
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
-                if icons::button(ui, "zoom-out", 32.0, false, "Zoom out (⌘−)").clicked() {
+                if icons::button(ui, "zoom-out", 32.0, false, tr("Zoom out (⌘−)")).clicked() {
                     view.zoom_step(false);
                 }
-                if icons::button(ui, "zoom-in", 32.0, false, "Zoom in (⌘+)").clicked() {
+                if icons::button(ui, "zoom-in", 32.0, false, tr("Zoom in (⌘+)")).clicked() {
                     view.zoom_step(true);
                 }
-                if icons::button(ui, "rotate-cw", 32.0, false, "Rotate view clockwise (⇧⌘+)").clicked() {
+                if icons::button(ui, "rotate-cw", 32.0, false, tr("Rotate view clockwise (⇧⌘+)")).clicked() {
                     view.rotate_view(true);
                 }
                 let fit_icon = if view.fit == Fit::Width { "maximize" } else { "columns-2" };
-                if icons::button(ui, fit_icon, 32.0, false, "Toggle fit page / fit width").clicked() {
+                if icons::button(ui, fit_icon, 32.0, false, tr("Toggle fit page / fit width")).clicked() {
                     view.fit = if view.fit == Fit::Width { Fit::Page } else { Fit::Width };
                     view.goto = Some((view.current, 0.0));
                 }
                 ui.label(egui::RichText::new(format!("{:.0}%", view.zoom * 100.0)).font(theme::regular(10.5)).color(t.text_faint));
                 ui.add_space(6.0);
-                if icons::button(ui, "chevron-down", 30.0, false, "Next page").clicked() {
+                if icons::button(ui, "chevron-down", 30.0, false, tr("Next page")).clicked() {
                     view.step_page(true);
                 }
-                if icons::button(ui, "chevron-up", 30.0, false, "Previous page").clicked() {
+                if icons::button(ui, "chevron-up", 30.0, false, tr("Previous page")).clicked() {
                     view.step_page(false);
                 }
                 ui.label(egui::RichText::new(page_count.to_string()).font(theme::regular(11.0)).color(t.text_muted));
@@ -338,7 +340,7 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     .corner_radius(CornerRadius::same(5))
                     .show(ui, |ui| ui.add(edit))
                     .inner
-                    .on_hover_text("Current page — type a page number or label (such as iv) and press Enter");
+                    .on_hover_text(tr("Current page — type a page number or label (such as iv) and press Enter"));
                 if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     // A page label first (logical page numbers, as Acrobat), then a number.
                     let typed = view.page_input.clone();

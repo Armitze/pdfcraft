@@ -4,6 +4,7 @@
 use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog::{Availability, TOOL_GROUPS};
 
+use crate::i18n::tr;
 use crate::theme::{self, Tokens};
 use crate::{LeftPanel, PdfCraftApp, icons};
 
@@ -44,14 +45,15 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let mac = cfg!(target_os = "macos") || cfg!(target_arch = "wasm32");
     let active = app.active_ids().map(|(_, id)| id);
     for spec in pdfcraft_engine::commands::COMMANDS {
-        let label = pdfcraft_engine::commands::current_label(spec, &app.session, active);
-        if let Some(s) = score(&label, &q).or_else(|| score(spec.id, &q).map(|s| s + 50)) {
+        let label = crate::commands::translated_label(spec, &app.session, active);
+        // The English label matches too, so a user can type either.
+        if let Some(s) = score(&label, &q).or_else(|| score(spec.label, &q)).or_else(|| score(spec.id, &q).map(|s| s + 50)) {
             hits.push((
                 s,
                 Hit {
                     group: None,
                     label,
-                    detail: spec.shortcut.map(|k| k.label(mac)).unwrap_or_else(|| spec.menu.unwrap_or("Command").to_string()),
+                    detail: spec.shortcut.map(|k| k.label(mac)).unwrap_or_else(|| tr(spec.menu.unwrap_or("Command")).to_string()),
                     icon: spec.icon,
                     command: Some(spec.id),
                     ready: app.command_enabled(spec),
@@ -60,13 +62,13 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         }
     }
     for g in TOOL_GROUPS {
-        if let Some(s) = score(g.label, &q) {
+        if let Some(s) = score(tr(g.label), &q).or_else(|| score(g.label, &q)) {
             hits.push((
                 s,
                 Hit {
                     group: Some(g.id),
-                    label: g.label.to_string(),
-                    detail: "Tool".into(),
+                    label: tr(g.label).to_string(),
+                    detail: tr("Tool").into(),
                     icon: g.icon,
                     command: None,
                     ready: g.availability == Availability::Ready,
@@ -78,13 +80,13 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 if pdfcraft_engine::commands::command(i.command).is_some() {
                     continue; // listed above as a command
                 }
-                if let Some(s) = score(i.label, &q).or_else(|| score(i.command, &q).map(|s| s + 50)) {
+                if let Some(s) = score(tr(i.label), &q).or_else(|| score(i.label, &q)).or_else(|| score(i.command, &q).map(|s| s + 50)) {
                     hits.push((
                         s + 1,
                         Hit {
                             group: Some(g.id),
-                            label: i.label.to_string(),
-                            detail: g.label.into(),
+                            label: tr(i.label).to_string(),
+                            detail: tr(g.label).into(),
                             icon: i.icon,
                             command: Some(i.command),
                             ready: i.availability == Availability::Ready,
@@ -110,7 +112,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     ui.add(icons::image("search", 18.0, t.text_muted));
                     let r = ui.add(
                         egui::TextEdit::singleline(&mut app.palette_query)
-                            .hint_text("Search tools and commands…")
+                            .hint_text(tr("Search tools and commands…"))
                             .frame(egui::Frame::NONE)
                             .font(theme::regular(15.0))
                             .desired_width(f32::INFINITY),
@@ -141,7 +143,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     }
                 }
                 if hits.is_empty() {
-                    ui.label(egui::RichText::new("No matching tools").color(t.text_muted));
+                    ui.label(egui::RichText::new(tr("No matching tools")).color(t.text_muted));
                 }
                 ui.add_space(2.0);
                 let _ = Stroke::NONE;
