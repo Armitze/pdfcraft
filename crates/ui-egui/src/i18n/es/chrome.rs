@@ -20,7 +20,7 @@ pub(super) const ENTRIES: &[(&str, &str)] = &[
     ("Print (⌘P)", "Imprimir (⌘P)"),
     ("Save (⌘S)", "Guardar (⌘S)"),
     ("Document properties (⌘D)", "Propiedades del documento (⌘D)"),
-    ("Find tools and commands", "Buscar herramientas y comandos"),
+    ("Find tools and commands", "Buscar herramientas"),
     // chrome.rs: View menu
     ("Fit to height", "Ajustar a la altura"),
     ("Zoom in", "Acercar"),
