@@ -1,7 +1,8 @@
 //! Edit a PDF ▸ Edit text & images: boxes around the paragraphs and images already on the page.
 //! Click a paragraph to edit it in place (⌘Enter or clicking away applies and rewraps it to the
 //! box, Esc cancels); drag it to move it, or drag the handle on its right edge to rewrap it to a
-//! new width. Click an image to select it: drag to move, drag a corner to resize (keeping
+//! new width. While it is open, drag its border or the grip above its top-left corner to move it
+//! (with what was typed, as one step). Click an image to select it: drag to move, drag a corner to resize (keeping
 //! its proportions), right-click for rotate, flip, replace, save and delete; Delete removes it.
 
 use egui::{Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Stroke};
@@ -38,6 +39,24 @@ pub struct LineEditor {
     /// horizontal scale (%), and what they were.
     pub extras: Extras,
     extras0: Extras,
+    /// Moving the open paragraph by its border or grip: where the drag started (screen).
+    move_from: Option<Pos2>,
+}
+
+/// The open editor's move grip: a tab above its top-left corner (screen).
+fn move_grip(frame: Rect) -> Rect {
+    Rect::from_min_size(Pos2::new(frame.left(), frame.top() - 18.0), egui::vec2(24.0, 18.0))
+}
+
+/// The open editor's border, as four bands around its frame that move the paragraph (screen).
+fn move_bands(frame: Rect) -> [Rect; 4] {
+    let o = frame.expand(5.0);
+    [
+        Rect::from_min_max(o.min, Pos2::new(o.right(), frame.top())),
+        Rect::from_min_max(Pos2::new(o.left(), frame.bottom()), o.max),
+        Rect::from_min_max(Pos2::new(o.left(), frame.top()), Pos2::new(frame.left(), frame.bottom())),
+        Rect::from_min_max(Pos2::new(frame.right(), frame.top()), Pos2::new(o.right(), frame.bottom())),
+    ]
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -397,7 +416,15 @@ pub(crate) fn page_input(
     if upright && active.is_none() {
         painter.rect(width_handle(boxes[hit]), CornerRadius::same(2), Color32::WHITE, Stroke::new(1.0, ACCENT), egui::StrokeKind::Middle);
     }
-    ui.ctx().set_cursor_icon(if on_handle { egui::CursorIcon::ResizeHorizontal } else { egui::CursorIcon::Text });
+    // On the box's border the pointer shows it moves (as Acrobat does); inside, that it edits.
+    let on_border = !boxes[hit].shrink(3.0).contains(p);
+    ui.ctx().set_cursor_icon(if on_handle {
+        egui::CursorIcon::ResizeHorizontal
+    } else if on_border && active != Some(hit) {
+        egui::CursorIcon::Move
+    } else {
+        egui::CursorIcon::Text
+    });
     // Dragging a box (not while a paragraph is open for typing) moves it; from the handle, resizes it.
     if resp.drag_started()
         && active.is_none()
@@ -431,6 +458,7 @@ pub(crate) fn page_input(
             look0: look_of(l),
             extras: Extras::default(),
             extras0: Extras::default(),
+            move_from: None,
         });
     }
     true
@@ -454,6 +482,8 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
     let font = editor_font(&ed.look, ed.size);
     let text_color = color32(ed.look.color);
     let mut done = None;
+    // Where the open paragraph was dropped after dragging its border or grip (screen).
+    let mut moved: Option<(Rect, Rect)> = None;
     egui::Area::new(egui::Id::new("edit-text-line")).order(egui::Order::Foreground).fixed_pos(Pos2::new(ed.rect.left(), ed.rect.top())).show(
         ctx,
         |ui| {
@@ -467,7 +497,8 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                 }) + 8.0;
                 width = width.max(needed).min(ed.max_width);
             }
-            egui::Frame::NONE.fill(Color32::WHITE).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0)).show(ui, |ui| {
+            let style = egui::Frame::NONE.fill(Color32::WHITE).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0));
+            let frame = style.show(ui, |ui| {
                 let rows = ed.text.lines().count().max(1);
                 let r = ui.add(
                     egui::TextEdit::multiline(&mut ed.text)
@@ -486,12 +517,48 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                 let apply = ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.command);
                 if esc {
                     done = Some(false);
-                } else if apply || (r.lost_focus() && !outside) {
+                } else if apply || (r.lost_focus() && !outside && ed.move_from.is_none()) {
                     done = Some(true);
                 }
             });
+            // Moving: drag the frame's border, or the grip above its top-left corner. Typing
+            // inside it still selects text, as in Acrobat.
+            let frame = frame.response.rect;
+            let grip = move_grip(frame);
+            let painter = ui.painter();
+            painter.rect_filled(grip, CornerRadius { nw: 3, ne: 3, sw: 0, se: 0 }, ACCENT);
+            crate::icons::paint(ui, grip, "move", 12.0, Color32::WHITE);
+            let mut handles = vec![ui.interact(grip, egui::Id::new("edit-text-move-grip"), egui::Sense::drag()).on_hover_text(tr("Drag to move"))];
+            for (k, band) in move_bands(frame).into_iter().enumerate() {
+                handles.push(ui.interact(band, egui::Id::new(("edit-text-move-band", k)), egui::Sense::drag()));
+            }
+            if handles.iter().any(|h| h.drag_started()) {
+                ed.move_from = ui.input(|i| i.pointer.press_origin());
+            }
+            if let Some(start) = ed.move_from {
+                let p = ui.input(|i| i.pointer.interact_pos()).unwrap_or(start);
+                let preview = frame.translate(p - start);
+                painter.rect_stroke(preview, CornerRadius::same(2), Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                if handles.iter().any(|h| h.drag_stopped()) || !ui.input(|i| i.pointer.any_down()) {
+                    ed.move_from = None;
+                    if preview != frame {
+                        moved = Some((frame, preview));
+                    }
+                }
+            } else if handles.iter().any(|h| h.hovered()) {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+            }
         },
     );
+    if let Some((from, to)) = moved {
+        // One step: what was typed, the formatting, and the new place. The paragraph closes,
+        // as its index among the page's paragraphs may change once it moves.
+        let ed = view.line_editor.take()?;
+        let (a, b) = (user_box(&xf, info, ed.page, from), user_box(&xf, info, ed.page, to));
+        let style = pdfcraft_engine::BlockStyle { offset: Some([b[0] - a[0], b[1] - a[1]]), ..ed.style() };
+        return Some(Edit::EditTextBlock { page: ed.page, block: ed.block, text: ed.text, style });
+    }
     match done {
         Some(apply) => {
             let ed = view.line_editor.take()?;

@@ -127,6 +127,7 @@ M0 → M1 → M2 → M3 → M4 must happen in order. After M4, M5–M12 can run 
 
 Newest first. One line per session: the date, what moved, and the new overall percentage.
 
+- **2026-11-17 (community, DAB_PDF):** Edit text: a paragraph open for typing can now be moved by dragging its border or the grip above its top-left corner (the typed text and the move are one undo step); before, dragging only worked on a closed box, which users did not find. The border shows the move cursor. No percentage change.
 - **2026-10-08 (community, DAB_PDF, later):** Full Spanish interface in five phases: `i18n::tr`/`trf` free functions with per-area catalogs, then chrome and menus, dialogs, comments/signatures/redaction, and editing/forms/canvas (~1,800 labels). Checked with screenshots through the control channel. Japanese remains menus-only (misc.prefs-language: partial).
 - **2026-10-08 (community, DAB_PDF):** Interface language: Spanish joins English and Japanese in Preferences ▸ Interface language (`ui.set language=es`). Same core menu coverage as Japanese; a test keeps every catalog on the same label set. Dialogs and panels still untranslated (misc.prefs-language: partial).
 - **2026-10-07 (session 16):** PrintCraft is renamed PdfCraft: repo `storytold/pdfcraft`, crates and binaries `pdfcraft*`, bundle id `ai.storyteller.pdfcraft`. On first launch the app moves the old PrintCraft settings and crash-recovery folders to the new name, so upgrades keep recent files, preferences and unsaved work. No feature change. ≈ 30–35%.

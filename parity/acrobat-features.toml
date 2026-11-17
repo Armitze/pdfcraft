@@ -1818,8 +1818,8 @@ milestone = "M7"
 status = "shipped"
 commands = ["edit.edit_text"]
 tools = ["text_edit"]
-evidence = ["crates/edit/src/tests.rs::paragraphs_move_and_rewrap_to_a_new_width", "crates/ui-egui/tests/editing.rs::dragging_a_paragraph_moves_it_and_its_edge_rewraps_it", "crates/automation/tests/automation.rs::editing_existing_text_through_tools"]
-notes = "existing paragraphs: drag the box to move it, drag the handle on its right edge to rewrap it to a new width (upright pages); the move is applied in page space through the paragraph's CTM, in its own q … Q; a click still opens it for typing (#40)"
+evidence = ["crates/edit/src/tests.rs::paragraphs_move_and_rewrap_to_a_new_width", "crates/ui-egui/tests/editing.rs::dragging_a_paragraph_moves_it_and_its_edge_rewraps_it", "crates/ui-egui/tests/editing.rs::the_open_paragraph_moves_by_its_grip_or_border", "crates/automation/tests/automation.rs::editing_existing_text_through_tools"]
+notes = "existing paragraphs: drag the box to move it, drag the handle on its right edge to rewrap it to a new width (upright pages); the move is applied in page space through the paragraph's CTM, in its own q … Q; a click still opens it for typing (#40); while open for typing, its border and a grip above its top-left corner move it, together with the typed text, as one step (the box closes after the move); the border shows the move cursor. Missing vs Acrobat: no handles to resize height, no keyboard nudge, no multi-select"
 
 [[feature]]
 id = "edit.paragraph-detection"

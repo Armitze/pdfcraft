@@ -911,3 +911,52 @@ fn dragging_a_paragraph_moves_it_and_its_edge_rewraps_it() {
     assert!(near(doc.text_lines(0)[0].rect[0], moved.rect[0]), "it keeps its place");
     assert!(h.state().views[0].line_editor.is_none());
 }
+
+#[test]
+fn the_open_paragraph_moves_by_its_grip_or_border() {
+    let mut h = harness(1, |_| {});
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let block = |h: &Harness<'static, PdfCraftApp>| {
+        let s = h.state();
+        s.session.get(s.views[0].id).unwrap().text_blocks(0)[0].clone()
+    };
+    let r = h.state().views[0].page_screen_rect(0).expect("on screen");
+    let k = r.width() / 200.0;
+    let screen = |x: f64, y: f64| egui::pos2(r.left() + x as f32 * k, r.top() + (300.0 - y as f32) * k);
+    let open = |h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2| {
+        h.hover_at(at);
+        h.run_steps(1);
+        h.drag_at(at);
+        h.run_steps(1);
+        h.drop_at(at);
+        h.run_steps(3);
+        assert!(h.state().views[0].line_editor.is_some(), "the paragraph opens for typing");
+    };
+    let near = |a: f64, b: f64| (a - b).abs() < 1.5;
+
+    // Open "Page 1", type, then drag the grip above its top-left corner 30 pt right, 50 pt up.
+    let before = block(&h);
+    open(&mut h, screen((before.rect[0] + before.rect[2]) / 2.0, (before.rect[1] + before.rect[3]) / 2.0));
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text = "Moved".into();
+    h.run_steps(1);
+    // The editor's frame is the paragraph's box grown by 2 px; the grip sits on its top edge.
+    let grip = screen(before.rect[0], before.rect[3]) + egui::vec2(-2.0 + 12.0, -2.0 - 9.0);
+    drag(&mut h, grip, grip + egui::vec2(30.0 * k, -50.0 * k));
+    assert!(h.state().views[0].line_editor.is_none(), "the moved paragraph closes");
+    let moved = block(&h);
+    assert_eq!(moved.text, "Moved", "what was typed goes with it");
+    assert!(near(moved.rect[0], before.rect[0] + 30.0) && near(moved.rect[1], before.rect[1] + 50.0), "{:?} → {:?}", before.rect, moved.rect);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.can_undo(), Some("Edit text"), "one undoable step");
+
+    // Open it again and drag its left border 20 pt left.
+    open(&mut h, screen((moved.rect[0] + moved.rect[2]) / 2.0, (moved.rect[1] + moved.rect[3]) / 2.0));
+    let border = screen(moved.rect[0], (moved.rect[1] + moved.rect[3]) / 2.0) + egui::vec2(-2.0 - 2.5, 0.0);
+    drag(&mut h, border, border - egui::vec2(20.0 * k, 0.0));
+    assert!(h.state().views[0].line_editor.is_none());
+    let again = block(&h);
+    assert!(near(again.rect[0], moved.rect[0] - 20.0) && near(again.rect[1], moved.rect[1]), "{:?} → {:?}", moved.rect, again.rect);
+    assert_eq!(again.text, "Moved");
+}

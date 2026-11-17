@@ -69,6 +69,7 @@ pub(super) const ENTRIES: &[(&str, &str)] = &[
     ("Beveled", "Biselado"),
     ("Inset", "Hundido"),
     ("Underline", "Subrayado"),
+    ("Drag to move", "Arrastrar para mover"),
     ("Left:", "Izquierda:"),
     ("Bottom:", "Inferior:"),
     ("Width:", "Ancho:"),
